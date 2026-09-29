@@ -98,11 +98,35 @@ bu şifreyi bilmeden panele giremez:
 | Saklama | Yalnızca SHA-256 hash'i (`rezonans_admin_pw`), düz metin hiçbir yerde yok |
 | Oturum süresi | 8 saat, sonra tekrar şifre gerekir |
 | Değiştirme | Panelden "Şifreyi Değiştir" (mevcut şifre doğrulanır) veya "Yeni Şifre Üret" (rastgele, bir kez gösterilir) |
+| Unutma kurtarma | Şifre belirlenirken **bir kez gösterilen bir kurtarma kodu** üretilir. Kapıdaki "Şifremi Unuttum" ile bu kod doğrulanır; eski şifre ve eski kod silinir, hemen yeni şifre belirlenir. |
 | Kullanıcı şifrelerine etkisi | **Yoktur.** Yönetim şifresi yalnızca paneli açar; hiçbir kullanıcı hesabını göremez, şifre değiştiremez veya silemez. |
 
 Kullanıcı şifrelerini yalnızca hesabın sahibi değiştirebilir. "Yönetimden Çık"
 panelin kilidini sıfırlar ama **kullanıcı oturumunu kapatmaz**; kullanıcı çıkışı
 başlıktaki **Çıkış** düğmesindedir.
+
+### Kurtarma kodu
+
+Şifre her belirlendiğinde veya değiştirildiğinde 16 karakterlik, tahmin edilemez bir
+**kurtarma kodu** üretilir (`XXXX-XXXX-XXXX-XXXX`, karışmayan karakterlerle). Düz
+metin kod **yalnızca bir kez** panelde gösterilir; tarayıcıda yalnızca SHA-256
+hash'i (`rezonans_admin_recovery_v1`) saklanır. Panel kapanınca veya kapı
+açılınca kodun düz metni DOM'dan da silinir.
+
+- **Kaybettiyseniz:** kapıdaki "Şifremi Unuttum" → kodu girin → eski şifre ve eski
+  kod kalıcı olarak silinir → yeni şifre belirlersiniz. Kullanıcı hesapları ve
+  içerik **hiç etkilenmez**.
+- **Yanlış kod** şifreyi silmez; yalnızca reddedilir.
+- **Yenileme:** panel açıkken "Kurtarma Kodu Yenile" eski kodu anında geçersiz
+  kılar ve yenisini bir kez daha gösterir.
+- **Kod da kaybolursa** kurtarma yolu yoktur: yönetim şifresi geri alınamaz. Bu
+  durumda yedekten içerikler geri yüklenebilir, ancak yönetim kapısı için tarayıcı
+  verisi elle temizlenmelidir.
+- Kod **yedeklenmez**; yedek dosyasına hiçbir kimlik bilgisi girmez.
+
+Kurtarma kodu, bu cihazdaki yönetim şifresine erişmek içindir. Cihaz başkasının
+eliyle tutuluyorsa o kişi zaten tarayıcı verisine erişebilir; bu yüzden kod
+**gizli bir kimlik doğrulama yöntemi değil, yalnızca hatırlama kolaylığıdır.**
 
 ### Panelde neler var?
 
@@ -110,7 +134,7 @@ başlıktaki **Çıkış** düğmesindedir.
 | --- | --- |
 | **📝 İçerik** | 9 koleksiyonu (düşünür kartları, dil tuzakları, su frekansları, günün kartları, inanç örnekleri, fiziksel yer kategorileri, alfa senaryoları, dirençsiz işaretler, arayüz sözlüğü) form veya JSON editörüyle düzenleme. Kaydet → uygulama anında yeniden render edilir. Ekle / sil / çoğalt / sırala ve "Geri Al" desteği. |
 | **📊 Analitik** | Toplam ziyaret, giriş sayısı, ilk/son kullanım damgası, bölüm bazlı görüntülenme ve etkileşim sayaçları, en çok açılan alanlar. Sayaçlar cihaz düzeyindedir; "Sandıktaki Niyet" ve "Kanıt Kaydı" ise **o anki kullanıcının kendi kayıtlarını** sayar. |
-| **💾 Yedekleme** | Tüm içerik override'larını tek `.json` dosyasına aktarma / geri yükleme, yönetim şifresini değiştirme veya yeni şifre üretme, bu tarayıcıdaki kullanıcı hesaplarını listeleme, başlangıç değerlerine sıfırlama. **Şifreler ve kullanıcı adları yedeklenmez.** |
+| **💾 Yedekleme** | Tüm içerik override'larını tek `.json` dosyasına aktarma / geri yükleme, yönetim şifresini değiştirme veya yeni şifre üretme, kurtarma kodu yenileme, bu tarayıcıdaki kullanıcı hesaplarını listeleme, başlangıç değerlerine sıfırlama. **Şifreler, kurtarma kodları ve kullanıcı adları yedeklenmez.** |
 
 **Tehlikeli işlemler:** "Tüm içerikleri sıfırla" yalnızca içerik override'larını siler; Dilek Sandığı, kanıt zinciri, 72 saat sayacı ve şifreler korunur. "Analitiği sıfırla" yalnızca sayaçları temizler.
 
@@ -128,7 +152,7 @@ başlıktaki **Çıkış** düğmesindedir.
 }
 ```
 
-`meta.accountCount` yalnızca o tarayıcıda kaç kullanıcı hesabı tanımlı olduğunu söyler. **Kullanıcı adları, şifreler (hash dahil) ve yönetim şifresi yedeğe hiç dâhil edilmez.** Yedek yüklendiğinde yalnızca içerik gelir; giriş bilgileri o cihazdakilerden belirlenir. Bu sayede aynı yedek farklı cihazlara yüklendiğinde her cihaz kendi kullanıcı adlarını ve şifrelerini kullanır.
+`meta.accountCount` yalnızca o tarayıcıda kaç kullanıcı hesabı tanımlı olduğunu söyler. **Kullanıcı adları, şifreler (hash dahil), yönetim şifresi ve kurtarma kodu yedeğe hiç dâhil edilmez.** Yedek yüklendiğinde yalnızca içerik gelir; giriş bilgileri o cihazdakilerden belirlenir. Bu sayede aynı yedek farklı cihazlara yüklendiğinde her cihaz kendi kullanıcı adlarını ve şifrelerini kullanır.
 
 Eski formatlı yedekler (`meta.users`, `meta.username`, `meta.hasCustomPassword`, `version`) sorunsuz yüklenir; içerik alınır, kimlik bilgileri değişmez.
 
@@ -181,6 +205,7 @@ rezon/
 | **Kullanıcı Girişi & Kayıt** | Tek sayfada üç mod (giriş / kayıt / şifre değiştirme). Dışarıdan gelen herkes kendi hesabını açar; **varsayılan kullanıcı adı/şifre ve önceden tanımlı kadro yoktur.** SHA-256 şifre, 8 saatlik oturum (kaba yük engeli, güvenlik sınırı değil) |
 | **Kişiye özel kayıtlar** | Dilek Sandığı, 72 saat kanıtı ve sayaç kullanıcı adına göre ayrıştırılmış anahtarlarda tutulur; aynı cihazdaki başka kullanıcılar göremez |
 | **Yönetim Kapısı** | İçerik panelini açan, kullanıcı hesabından bağımsız gizli şifre. Kaynak kodunda varsayılanı yoktur, ilk kullanımda belirlenir, yalnızca hash olarak saklanır |
+| **Kurtarma Kodu** | Şifre belirlenirken bir kez gösterilen 16 karakterlik kod; unutulan yönetim şifresini kod ile sıfırlamayı sağlar, yalnızca hash olarak saklanır |
 | **Yönetim Paneli** | 9 koleksiyonu tarayıcıdan düzenleme, JSON yedekleme/geri yükleme, ziyaret ve bölüm analitiği, yönetim şifresi yönetimi |
 
 ---
@@ -200,6 +225,7 @@ Tüm kalıcı veriler tarayıcının `localStorage` alanında tutulur; hiçbir i
 | `rezonans_users_v1` | Kullanıcı kadrosu: `[{ "name": "...", "hash": "<64 hex>", "createdAt": 0 }]` — hesabı açan herkes için bir kayıt. Şifreler yalnızca hash olarak tutulur. |
 | `rezonans_user_session` | Kullanıcı oturumu (`{ exp, user }`, 8 saat) |
 | `rezonans_admin_pw` | Yönetim şifresinin SHA-256 hash'i (kullanıcı hesabı değildir) |
+| `rezonans_admin_recovery_v1` | Kurtarma kodunun SHA-256 hash'i (düz metin hiçbir yerde saklanmaz) |
 | `rezonans_admin_session` | Yönetim paneli oturumu (`{ exp }`, 8 saat) |
 | `rezonans_legacy_migrated_v1` | `"1"` — kullanıcı öncesi cihaz verisinin taşındığının bayrağı |
 | `rezonans_admin_content_v1` | Panelden yapılan içerik override'ları (anahtar → dizi/nesne) |
@@ -306,7 +332,7 @@ Kullanıcı adı karşılaştırması `trim().toLowerCase()` ile yapılır, yani
 | --- | --- |
 | SHA-256 (her iki yol) | Node 24 ile 16 farklı girdi (Türkçe karakter, emoji, CJK, 55/56/57/64/1000 bayt) karşılaştırmalı doğrulandı — hepsi referans hash ile aynı |
 | Kaynak sızıntısı | `index.html` ve `README.md` üzerinde otomatik tarama: eski kullanıcı adları, eski üretilmiş parolalar, 64 haneli sabit hash, eski iki hesaplı kurulum kalıntıları, eski per-user şifre yönetimi, sabit hesap listesi ve kullanıcısız veri anahtarı kullanımı **0 eşleşme** |
-| Uçtan uca tarayıcı | Chrome (headless, `http://127.0.0.1` üzerinden) ile **97 test, 0 hata**: tek giriş sayfası ve üç mod, kurulum ekranı olmaması, dışarıdan gelenin kayıt olması, kısa/eşleşmeyen/aynı kullanıcı adı reddi, otomatik giriş ve başlık rozeti, çıkış, **iki kullanıcı arasında Dilek Sandığı ve 72 saat izolasyonu**, hatalı şifre, kullanıcının kendi şifresini değiştirmesi (yanlış mevcut şifre reddi, eski şifrenin geçersizleşmesi, veri kaybı olmaması), yönetim kapısının ilk kullanımda şifre belirlemesi, tekrarsız doğrulama, yanlış yönetim şifresinin reddi, panelde kullanıcı listesi, panelde hash/şifre sızmaması, kullanıcı şifresinin panelden değiştirilememesi, yedekte kimlik sızmaması, analitik giriş sayacı, yönetimden çıkışın kullanıcı oturumunu kapatmaması, eski cihaz verisinin yalnızca ilk kullanıcıya bir kez taşınması |
+| Uçtan uca tarayıcı | Chrome (headless, `http://127.0.0.1` üzerinden) ile **140 test, 0 hata**: tek giriş sayfası ve üç mod, kurulum ekranı olmaması, dışarıdan gelenin kayıt olması, kısa/eşleşmeyen/aynı kullanıcı adı reddi, otomatik giriş ve başlık rozeti, çıkış, **iki kullanıcı arasında Dilek Sandığı ve 72 saat izolasyonu**, hatalı şifre, kullanıcının kendi şifresini değiştirmesi (yanlış mevcut şifre reddi, eski şifrenin geçersizleşmesi, veri kaybı olmaması), **yönetim kapısının ilk kullanımda şifre belirlemesi, tekrarsız doğrulama, yanlış yönetim şifresinin reddi, kurtarma kodunun bir kez gösterilip yalnızca hash olarak saklanması, yedekte kurtarma kodu sızmaması, yanlış kurtarma kodunun şifreyi silmemesi, doğru kodla şifrenin sıfırlanması ve kapının "belirle" moduna dönmesi, eski kodun geçersizleşmesi, kurtarma sonrası kullanıcı verisinin korunması, panelden kurtarma kodu yenileme, panel kapanınca kodun DOM'dan silinmesi**, panelde kullanıcı listesi, panelde hash/şifre sızmaması, kullanıcı şifresinin panelden değiştirilememesi, yedekte kimlik sızmaması, analitik giriş sayacı, yönetimden çıkışın kullanıcı oturumunu kapatmaması, eski cihaz verisinin yalnızca ilk kullanıcıya bir kez taşınması |
 | Duyarlılık | Chrome headless ile **7 viewport, 0 hata** (1920×1080, 1366×640, 1280×720, 1024×600, 820×1180, 390×844, 360×640): giriş, kayıt, şifre değiştirme ve yönetim kapısı kartları ekrana sığıyor, üstten kırpılmıyor, yatay sayfa kaydırması oluşmuyor |
 | Statik denetim | 4 satır içi `<script>` bloğunun tamamı ayrıştırılıyor; 129 `getElementById` hedefinin tamamı markup'ta mevcut; kullanılmayan `data-*` kancası yok |
 | Yayınlanan sürüm | GitHub Pages adresine Chrome (headless) ile **28 test, 0 hata**: canlıda tek giriş sayfası, dışarıdan gelenin kaydı, iki kullanıcı arasında veri izolasyonu, yönetim kapısının ilk kullanımda şifre belirlemesi, panelde iki kullanıcı listesi, yedekte kimlik sızmaması, yönetimden çıkışın kullanıcı oturumunu kapatmaması, şifre değiştirme ve veri korunması. Sayfa hatası ve konsol hatası yoktur (yalnızca tarayıcının `favicon.ico` isteği 404 döner, uygulamayla ilgisi yoktur) |

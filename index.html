@@ -179,7 +179,10 @@
     #admin-gate.is-create #admin-gate-confirm-wrap,
     #admin-gate.is-change #admin-gate-confirm-wrap,
     #admin-gate.is-change #admin-gate-new-wrap { display: block; }
-    #admin-gate-new-wrap { display: none; }
+    /* Kurtarma modunda (is-recovery) yalnizca TEK alan gorunur; asagidaki
+       iki kural varsayilan gizlemeyi her iki alan icin de tanimlar. */
+    #admin-gate-new-wrap,
+    #admin-gate-confirm-wrap { display: none; }
 
     /* KISA EKRAN: dikey yerlesim kisitli oldugunda kart sikilastirilir.
        Aksi halde 600px yukseklikli dizunustede form ekrana sigmaz ve
@@ -251,6 +254,13 @@
          ekranından belirlenir. */
       var ADMIN_PW_KEY = 'rezonans_admin_pw';
       var ADMIN_SESSION_KEY = 'rezonans_admin_session';
+      var ADMIN_RECOVERY_KEY = 'rezonans_admin_recovery_v1';
+
+      /* Kurtarma kodu alfabesi: karışmayan karakterler (I, O, 0, 1 yok).
+         Kullanıcı kodu elle yazdığı için büyük harfe çevrilir ve
+         tire/boşluk yok sayılır; boylece "abcd-efgh" ile "ABCD EFGH"
+         aynı koddur. */
+      var RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
       /* ---------- SHA-256 ---------- */
       var K = [
@@ -477,6 +487,55 @@
         } catch (e) { return false; }
       }
 
+      function normalizeRecoveryCode(code) {
+        return String(code == null ? '' : code).toUpperCase().replace(/[^A-Z0-9]/g, '');
+      }
+
+      function generateRecoveryCode() {
+        var bytes = new Uint8Array(16);
+        if (window.crypto && window.crypto.getRandomValues) {
+          window.crypto.getRandomValues(bytes);
+        } else {
+          for (var i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+        }
+        var out = '';
+        for (var j = 0; j < bytes.length; j++) out += RECOVERY_ALPHABET[bytes[j] % RECOVERY_ALPHABET.length];
+        return out;
+      }
+
+      /* Duz metin kod SADECE burada ve çağırana bir kez döner; depolanan
+         şey hash'idir. */
+      function createAdminRecovery() {
+        var raw = generateRecoveryCode();
+        return sha256(normalizeRecoveryCode(raw)).then(function (hash) {
+          localStorage.setItem(ADMIN_RECOVERY_KEY, hash);
+          return (raw.match(/.{1,4}/g) || []).join('-');
+        });
+      }
+
+      function hasAdminRecovery() {
+        try {
+          return /^[0-9a-f]{64}$/i.test(localStorage.getItem(ADMIN_RECOVERY_KEY) || '');
+        } catch (e) { return false; }
+      }
+
+      function verifyAdminRecovery(code) {
+        var stored = null;
+        try { stored = localStorage.getItem(ADMIN_RECOVERY_KEY); } catch (e) {}
+        if (!stored) return Promise.resolve(false);
+        return sha256(normalizeRecoveryCode(code)).then(function (hash) { return hash === stored; });
+      }
+
+      /* Kurtarma sonrası eski şifre ve kod kalıcı olarak silinir. */
+      function clearAdminPassword() {
+        try {
+          localStorage.removeItem(ADMIN_PW_KEY);
+          localStorage.removeItem(ADMIN_RECOVERY_KEY);
+          localStorage.removeItem(ADMIN_SESSION_KEY);
+        } catch (e) {}
+        return true;
+      }
+
       function setAdminPassword(password) {
         if (!password || password.length < PASSWORD_MIN_LENGTH) {
           return Promise.reject(new Error('Yönetim şifresi en az ' + PASSWORD_MIN_LENGTH + ' karakter olmalı.'));
@@ -486,7 +545,9 @@
           /* Sifreyi belirlemek/degistirmek zaten yetki ister: panel kilidi
              de acilir, yoksa ilk kurulumda sonraki islemler kilitli kalir. */
           localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ exp: Date.now() + SESSION_TTL }));
-          return true;
+          /* Sifre her belirlendiginde/degistiginde yeni kurtarma kodu
+             uretilir; eski kod gecersiz olur. */
+          return createAdminRecovery().then(function (code) { return { ok: true, recovery: code }; });
         });
       }
 
@@ -755,6 +816,10 @@ return {
         verifyAdminPassword: verifyAdminPassword,
         isAdminAuthed: isAdminAuthed,
         logoutAdmin: logoutAdmin,
+        hasAdminRecovery: hasAdminRecovery,
+        createAdminRecovery: createAdminRecovery,
+        verifyAdminRecovery: verifyAdminRecovery,
+        clearAdminPassword: clearAdminPassword,
         MIGRATED_KEY: MIGRATED_KEY,
         getContentStore: getContentStore,
         hasContent: hasContent,
@@ -883,7 +948,8 @@ return {
           </button>
         </form>
 
-        <div class="mt-5 flex items-center justify-center text-xs">
+        <div class="mt-5 flex items-center justify-center gap-4 text-xs">
+          <button type="button" id="admin-gate-forgot" class="text-amber-300/80 hover:text-amber-200 underline underline-offset-4 transition-colors">Şifremi Unuttum</button>
           <button type="button" data-admin-act="close-gate" class="text-slate-400 hover:text-slate-200 underline underline-offset-4 transition-colors">Vazgeç</button>
         </div>
 
@@ -2052,9 +2118,21 @@ return {
           <div class="p-5 rounded-2xl bg-slate-900/70 border border-white/10 space-y-3">
             <h3 class="text-sm font-bold text-white">Yönetim Şifresi</h3>
             <p id="admin-password-state" class="text-xs text-slate-400 leading-relaxed"></p>
+            <p id="admin-recovery-state" class="text-xs text-slate-400 leading-relaxed"></p>
+
+            <div id="admin-recovery-box" class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+              <p class="text-xs font-bold text-amber-200">Kurtarma kodu — yalnızca şimdi görünüyor</p>
+              <div class="flex items-center gap-2">
+                <code id="admin-recovery-code" class="flex-1 px-3 py-2 rounded-lg bg-slate-900/80 border border-white/10 text-amber-200 font-mono text-sm tracking-widest break-all select-all"></code>
+                <button data-admin-act="copy-recovery" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all shrink-0">Kopyala</button>
+              </div>
+              <p class="text-[11px] text-amber-200/70 leading-relaxed">Şifreyi belirlerken verilen bu kod, yönetim şifrenizi unuttuğunuzda yeni şifre belirlemenizi sağlar. <strong>Bir yere not edin.</strong> Düz metin olarak hiçbir yerde saklanmaz; yalnızca hash'i tutulur ve tekrar gösterilemez.</p>
+            </div>
+
             <div class="flex flex-wrap gap-2 pt-1">
               <button data-admin-act="change-admin-pw" class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all">Şifreyi Değiştir</button>
               <button data-admin-act="generate-admin-pw" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all">Yeni Şifre Üret</button>
+              <button data-admin-act="renew-recovery" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all">Kurtarma Kodu Yenile</button>
               <button data-admin-act="logout" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all">Yönetimden Çık</button>
             </div>
             <p class="text-[11px] text-slate-500 leading-relaxed pt-1">Yönetim şifresi yalnızca içerik panelini açar; <strong class="text-slate-400">bir kullanıcı hesabı değildir</strong> ve dışarıdan gelenler bu şifreyi bilmeden panele giremez. Kaynak kodunda varsayılanı yoktur, ilk kez yönetim kapısında belirlenir ve yalnızca bu tarayıcıda SHA-256 hash'i olarak saklanır.</p>
@@ -3877,6 +3955,7 @@ function copyQuoteText(encodedText) {
     var adminGateNew = document.getElementById('admin-gate-newpassword');
     var adminGateConfirmLabel = document.getElementById('admin-gate-confirm-label');
     var adminGateConfirm = document.getElementById('admin-gate-password-confirm');
+    var adminGateForgot = document.getElementById('admin-gate-forgot');
 
     var GATE_COPY = {
       create: {
@@ -3899,15 +3978,31 @@ function copyQuoteText(encodedText) {
         submit: 'Şifreyi Güncelle',
         password: 'Mevcut Yönetim Şifresi',
         confirm: 'Yeni Şifreyi Tekrarla'
+      },
+      recovery: {
+        title: 'Yönetim Şifresini Kurtar',
+        desc: 'Şifrenizi unuttuysanız, şifreyi belirlerken size verilen kurtarma kodunu girin. Mevcut şifre silinir ve hemen yenisini belirleyebilirsiniz.',
+        submit: 'Kodu Doğrula ve Sıfırla',
+        password: 'Kurtarma Kodu',
+        confirm: 'Şifreyi Tekrarla'
       }
     };
+
+    function currentGateMode() {
+      if (adminGateEl.classList.contains('is-recovery')) return 'recovery';
+      if (adminGateEl.classList.contains('is-change')) return 'change';
+      return ADMIN.hasAdminPassword() ? 'verify' : 'create';
+    }
 
     function openAdminGate(mode) {
       if (!adminGateEl) return;
       if (!mode) mode = ADMIN.hasAdminPassword() ? 'verify' : 'create';
+      /* Kurtarma kodu duz metni yalnizca panel gorunurken DOM'da tutulur;
+         kapi acilir acilmaz silinir. */
+      hideAdminRecovery();
       var copy = GATE_COPY[mode] || GATE_COPY.verify;
-      adminGateEl.classList.remove('is-create', 'is-change');
-      if (mode === 'create' || mode === 'change') adminGateEl.classList.add('is-' + mode);
+      adminGateEl.classList.remove('is-create', 'is-change', 'is-recovery');
+      if (mode === 'create' || mode === 'change' || mode === 'recovery') adminGateEl.classList.add('is-' + mode);
       if (adminGateTitle) adminGateTitle.textContent = copy.title;
       if (adminGateDesc) adminGateDesc.textContent = copy.desc;
       if (adminGateSubmit) adminGateSubmit.textContent = copy.submit;
@@ -3915,7 +4010,15 @@ function copyQuoteText(encodedText) {
       if (adminGateConfirmLabel) adminGateConfirmLabel.textContent = copy.confirm;
       if (adminGatePassword) {
         adminGatePassword.value = '';
-        adminGatePassword.setAttribute('autocomplete', mode === 'verify' ? 'current-password' : 'new-password');
+        adminGatePassword.setAttribute('autocomplete',
+          mode === 'verify' ? 'current-password' : (mode === 'recovery' ? 'one-time-code' : 'new-password'));
+        adminGatePassword.setAttribute('placeholder',
+          mode === 'recovery' ? 'XXXX-XXXX-XXXX-XXXX' : '••••••••');
+      }
+      /* Kurtarma yolu yalnızca zaten bir şifre varsa anlamlıdır. */
+      if (adminGateForgot) {
+        adminGateForgot.classList.toggle('hidden', !ADMIN.hasAdminPassword());
+        adminGateForgot.textContent = mode === 'recovery' ? 'Geri Dön' : 'Şifremi Unuttum';
       }
       if (adminGateNew) adminGateNew.value = '';
       if (adminGateConfirm) adminGateConfirm.value = '';
@@ -3936,9 +4039,7 @@ function copyQuoteText(encodedText) {
       adminGateForm.addEventListener('submit', function (event) {
         event.preventDefault();
         var password = adminGatePassword ? adminGatePassword.value : '';
-        var mode = adminGateEl.classList.contains('is-change')
-          ? 'change'
-          : (ADMIN.hasAdminPassword() ? 'verify' : 'create');
+        var mode = currentGateMode();
         var copy = GATE_COPY[mode];
 
         function fail(message) {
@@ -3967,30 +4068,45 @@ function copyQuoteText(encodedText) {
             /* Kurulumda eski bir şifre kalmış olabilir; şifre zaten varsa
                "belirleme" yerine doğrulama yapılır. */
             if (pre) return { already: true };
-            return ADMIN.setAdminPassword(password).then(function () { return { created: true }; });
+            return ADMIN.setAdminPassword(password).then(function (r) { return { created: true, recovery: r && r.recovery }; });
           });
         } else if (mode === 'change') {
           task = ADMIN.verifyAdminPassword(password).then(function (ok) {
             if (!ok) return { denied: true };
-            return ADMIN.setAdminPassword(adminGateNew ? adminGateNew.value : '').then(function () { return { changed: true }; });
+            return ADMIN.setAdminPassword(adminGateNew ? adminGateNew.value : '')
+              .then(function (r) { return { changed: true, recovery: r && r.recovery }; });
+          });
+        } else if (mode === 'recovery') {
+          /* Kurtarma kodu dogrulanirsa eski yonetim sifresi kalici olarak
+             silinir ve kapi "belirle" moduna doner. */
+          task = ADMIN.verifyAdminRecovery(password).then(function (ok) {
+            if (!ok) return { deniedRecovery: true };
+            ADMIN.clearAdminPassword();
+            return { recovered: true };
           });
         } else {
           task = ADMIN.verifyAdminPassword(password).then(function (ok) { return ok ? { verified: true } : { denied: true }; });
         }
 
         task.then(function (result) {
+          if (result.deniedRecovery) { fail('Kurtarma kodu hatalı.'); return; }
           if (result.denied) { fail('Yönetim şifresi hatalı.'); return; }
           if (result.already) { fail('Bu tarayıcıda zaten bir yönetim şifresi var. Mevcut şifreyi girin.'); return; }
+          if (result.recovered) {
+            openAdminGate('create');
+            showError(adminGateError, 'Kurtarma kodu doğrulandı. Eski şifre silindi; şimdi yeni şifrenizi belirleyin.', 'ok');
+            return;
+          }
           closeAdminGate();
-          if (result.changed) { openAdminPanel(); adminToast('Yönetim şifresi güncellendi.'); return; }
           openAdminPanel();
+          if (result.changed) { adminToast('Yönetim şifresi güncellendi.'); }
+          if (result.recovery) { switchAdminTab('backup'); showAdminRecovery(result.recovery); }
         }).catch(function (e) {
           showError(adminGateError, (e && e.message) ? e.message : 'Şifre kaydedilemedi.');
         }).then(function () {
           if (adminGateSubmit) {
             adminGateSubmit.disabled = false;
-            var again = adminGateEl.classList.contains('is-change') ? 'change' : (ADMIN.hasAdminPassword() ? 'verify' : 'create');
-            adminGateSubmit.textContent = (GATE_COPY[again] || GATE_COPY.verify).submit;
+            adminGateSubmit.textContent = (GATE_COPY[currentGateMode()] || GATE_COPY.verify).submit;
           }
         });
       });
@@ -3999,6 +4115,13 @@ function copyQuoteText(encodedText) {
     document.querySelectorAll('[data-admin-act="close-gate"]').forEach(function (btn) {
       btn.addEventListener('click', function () { closeAdminGate(); });
     });
+
+    if (adminGateForgot) {
+      adminGateForgot.addEventListener('click', function () {
+        if (currentGateMode() === 'recovery') { openAdminGate('verify'); return; }
+        openAdminGate('recovery');
+      });
+    }
 
     /* ---------------- PANEL ---------------- */
     var adminPanel = document.getElementById('admin-panel');
@@ -4009,6 +4132,7 @@ function copyQuoteText(encodedText) {
       renderEditor();
       renderAnalytics();
       updateAdminPasswordState();
+      hideAdminRecovery();
       adminPanel.classList.remove('hidden');
       adminPanel.classList.add('admin-open');
       document.body.style.overflow = 'hidden';
@@ -4016,6 +4140,8 @@ function copyQuoteText(encodedText) {
 
     function closeAdminPanel() {
       if (!adminPanel) return;
+      /* Panel kapaninca kurtarma kodunun duz metni DOM'dan da silinir. */
+      hideAdminRecovery();
       adminPanel.classList.add('hidden');
       adminPanel.classList.remove('admin-open');
       document.body.style.overflow = '';
@@ -4354,12 +4480,39 @@ function copyQuoteText(encodedText) {
 
     /* ---------------- YÖNETİM ŞİFRESİ ----------------
        Kullanıcı hesabı DEĞİLDİR: yalnızca içerik panelini açar. */
+    /* Kurtarma kodu yalnizca bir kez gosterilir: duz metni buraya yazilir
+       ve DOM'dan tutulur, localStorage'a degil. */
+    function showAdminRecovery(code) {
+      var box = document.getElementById('admin-recovery-box');
+      var codeEl = document.getElementById('admin-recovery-code');
+      if (!codeEl || !code || !code) return;
+      codeEl.textContent = String(code);
+      if (box) box.classList.remove('hidden');
+      updateAdminPasswordState();
+      if (box) box.scrollIntoView({ block: 'nearest' });
+    }
+
+    function hideAdminRecovery() {
+      var box = document.getElementById('admin-recovery-box');
+      var codeEl = document.getElementById('admin-recovery-code');
+      if (codeEl) codeEl.textContent = '';
+      if (box) box.classList.add('hidden');
+    }
+
     function updateAdminPasswordState() {
       var el = document.getElementById('admin-password-state');
       if (el) {
         el.textContent = ADMIN.hasAdminPassword()
           ? 'Yönetim şifresi tanımlı. Kullanıcı hesaplarından tamamen bağımsız.'
           : 'Yönetim şifresi henüz tanımlı değil.';
+      }
+      var rec = document.getElementById('admin-recovery-state');
+      if (rec) {
+        rec.textContent = !ADMIN.hasAdminPassword()
+          ? 'Şifre belirlendiğinde bir kurtarma kodu üretilir.'
+          : (ADMIN.hasAdminRecovery()
+            ? 'Kurtarma kodu tanımlı. Şifrenizi unutursanız yönetim kapısındaki "Şifremi Unuttum" ile yeni şifre belirleyebilirsiniz.'
+            : 'Bu tarayıcıda kurtarma kodu yok. Şifrenizi unutursanız yönetim paneline erişim geri alınamaz.');
       }
       var list = document.getElementById('admin-user-list');
       if (!list) return;
@@ -4535,6 +4688,29 @@ function copyQuoteText(encodedText) {
         }
         if (act === 'export') { exportJson(); return; }
         if (act === 'import') { importInput && importInput.click(); return; }
+
+        if (act === 'renew-recovery') {
+          /* Panel zaten acildi, yani yonetim oturumu gecerli: ek dogrulama
+             gerekmez. Eski kod aninda gecersiz olur. */
+          ADMIN.createAdminRecovery().then(function (code) {
+            showAdminRecovery(code);
+            adminToast('Yeni kurtarma kodu üretildi.');
+          });
+          return;
+        }
+
+        if (act === 'copy-recovery') {
+          var codeEl = document.getElementById('admin-recovery-code');
+          if (!codeEl || !codeEl.textContent) return;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(codeEl.textContent)
+              .then(function () { adminToast('Kurtarma kodu kopyalandı.'); })
+              .catch(function () { adminToast('Kopyalanamadı; kodu elle not edin.', true); });
+          } else {
+            adminToast('Kopyalanamadı; kodu elle not edin.', true);
+          }
+          return;
+        }
 
         if (act === 'change-admin-pw') {
           /* Mevcut yönetim şifresi doğrulanır; kullanıcı şifrelerine
