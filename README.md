@@ -1,6 +1,6 @@
 # Rezonans Kanunu — İnteraktif Yaşam ve Frekans Rehberi
 
-Pierre Franckh'ın *"Rezonans Kanunu" (Das Gesetz der Resonanz)* eseri, seminer notları ve öğretilerinden derlenen **tek dosyalık** interaktif web uygulaması. İçerik dili Türkçedir, arayüz İngilizce/Türkçe arasında geçiş yapabilir ve tüm veriler tarayıcıda `localStorage` ile saklanır — sunucu, cihazlar arası hesap veya derleme adımı yoktur. Uygulama açılışta tek bir giriş sayfası ister; dışarıdan gelen her kullanıcı kendi hesabını açabilir ve Dilek Sandığı ile 72 saat kayıtları yalnızca kendisine görünür.
+Pierre Franckh'ın *"Rezonans Kanunu" (Das Gesetz der Resonanz)* eseri, seminer notları ve öğretilerinden derlenen **tek dosyalık** interaktif web uygulaması. İçerik dili Türkçedir, arayüz İngilizce/Türkçe arasında geçiş yapabilir ve tüm veriler tarayıcıda `localStorage` ile saklanır — sunucu, cihazlar arası hesap veya derleme adımı yoktur. Uygulama **doğrudan açılır**: giriş ekranı, hesap sistemi ve oturum yoktur. Dilek Sandığı, 72 saat kayıtları ve sayaç cihaz düzeyindedir; aynı tarayıcıda her açılışta aynı verileri görürsünüz.
 
 > **Not:** Bu proje kişisel gelişim ve meditasyon amaçlı bir çalışma aracıdır. İçerikler bir psikiyatrik veya tıbbi öneri değildir.
 
@@ -26,71 +26,57 @@ python -m http.server 8000
 
 ---
 
-## 🔐 Giriş, Kayıt ve Hesaplar
+## 🚫 Giriş Yok
 
-Uygulama açılışta **tek bir giriş sayfası** ister. Bu sayfada üç mod vardır ve
-modlar arasında geçiş yapılabilir — ayrı bir kurulum ekranı **yoktur**:
-
-| Mod | Ne zaman | Form |
-| --- | --- | --- |
-| **Giriş Yap** | Varsayılan | Kullanıcı adı + şifre |
-| **Kayıt Ol** | Hesabı olmayan herkes için | Kullanıcı adı + şifre + şifre tekrarı |
-| **Şifremi Değiştir** | Şifresini unutanlar için | Kullanıcı adı + mevcut şifre + yeni şifre + tekrar |
-
-Dışarıdan gelen herkes **kendi hesabını kendisi açabilir**; önceden tanımlı
-kullanıcı adı veya şifre yoktur, kaynak kodda da gömülü hesap yoktur.
+Uygulamada **hesap, giriş ekranı ve kullanıcı oturumu yoktur.** Dosya tarayıcıda
+açıldığında içerik doğrudan görünür; kurulum ekranı, kullanıcı adı, şifre veya
+başlıktaki Çıkış düğmesi bulunmaz.
 
 | | |
 | --- | --- |
-| Hesap sayısı | Sınırsız — her kullanıcı kendi hesabını açar |
-| Kullanıcı adı kuralı | En az 3 karakter; harf, rakam, `.`, `_`, `-` (Türkçe karakter desteklenmez) |
-| Şifre kuralı | En az 8 karakter (Türkçe karakter ve emoji desteklenir) |
-| Şifre saklama | Yalnızca SHA-256 hash'i (`localStorage`, düz metin hiçbir yerde yok) |
-| Oturum süresi | 8 saat, sonra yeniden giriş gerekir |
-| Şifre değiştirme | Yalnızca hesabın sahibi, mevcut şifreyi doğrulayarak |
+| Veri kapsamı | **Cihaz düzeyi** — aynı tarayıcıda her açılışta aynı kayıtlar |
+| Kullanıcı hesabı, oturum, kadro | Yok, kaynak kodda da yok |
+| Kişisel veri izolasyonu | Yok — cihazı eline alan kişi kayıtları görür |
 
-Kullanıcı adı büyük/küçük harf ve çevresi boşluk duyarsızdır: `AHMET.Y`,
-`ahmet.y` ve `  ahmET.y  ` aynı hesaptır. Kullanıcı adı veya şifreden hangisinin
-yanlış olduğu bilinmez, hata mesajı her zaman aynıdır. Kullanıcı adı sonradan
-değiştirilemez; şifre değiştirilebilir.
+> Aynı cihazda birden fazla kişi kullanacaksa bu uygulama uygun değildir:
+> kayıtlar arasında ayrım yoktur. Gerçek gizlilik veya yetkilendirme için bir
+> sunucu katmanı gerekir.
 
-> **Bu bir güvenlik sınırı değildir.** Koruma tamamen tarayıcı tarafında çalışır
-> ve yalnızca kaba yükten (çocuklar, misafirler, refleks) saklar. Gerçek
-> gizlilik veya yetkilendirme için bir sunucu katmanı gerekir. Tarayıcı
-> `localStorage`'ına ve geliştirici araçlarına erişimi olan herkes hesabı ve
-> kayıtları okuyabilir; şifreler yine de yalnızca hash olarak tutulur.
+### Kayıtların cihaz anahtarına taşınması
 
-Başlıktaki **Çıkış** düğmesi yalnızca o kullanıcının oturumunu kapatır; diğer
-kullanıcıların hesaplarına ve kayıtlarına dokunmaz.
-
-### Kişiye özel kayıtlar
-
-Dilek Sandığı, 72 saat kanıt zinciri ve 72 saat sayacı **giriş yapan kullanıcıya
-özeldir.** Aynı cihazda iki kişi kullanıyorsa ikisi de kendi kayıtlarını görür;
-kimse diğerinin niyetini göremez. Bu izolasyon anahtar adında kullanıcı adına
-göre ayrıştırma ile yapılır:
+Kullanıcı sistemi eklenmeden önce kayıtlar cihaz düzeyindeki anahtarlarda
+tutuluyordu; hesap sistemi döneminde ise kullanıcı adı eklenerek şu anahtarlara
+taşındı:
 
 ```
-rezonans_kanunu_wishes_v2__<kullanici>      # yalnızca o kullanıcının Dilek Sandığı
-rezonans_kanunu_evidence_v2__<kullanici>    # yalnızca o kullanıcının 72 saat kanıtı
-rezonans_kanunu_sync_timer_v2__<kullanici>  # yalnızca o kullanıcının aktif sayacı
+rezonans_kanunu_wishes_v2__<kullanici>      # o kullanıcının Dilek Sandığı
+rezonans_kanunu_evidence_v2__<kullanici>    # o kullanıcının 72 saat kanıtı
+rezonans_kanunu_sync_timer_v2__<kullanici>  # o kullanıcının aktif sayacı
 ```
 
-Kullanıcı kavramı eklenmeden önce bu veriler cihaz düzeyinde tutuluyordu. Bu
-sürüme geçen bir cihazda eski kayıtlar **ilk giriş yapan kullanıcıya bir kez**
-taşınır ve cihazdaki hesabın ilk açan kişiye ait olur; ikinci kullanıcıya
-kopyalanmaz. Taşındıktan sonra `rezonans_legacy_migrated_v1` bayrağı yazılır ve
-işlem bir daha tekrarlanmaz.
+`adoptUserScopedData()` her açılışta şunu yapar:
 
-> Fiziksel yer açma kontrol listesi (`rezonans_clearing_checks_v1`) cihaz
-> düzeyinde kalır; bu bir kişisel kayıt değil, uygulama ayarıdır.
+1. Cihaz anahtarı (`rezonans_kanunu_wishes_v2` vb.) **yoksa** o anda
+   bulunan kullanıcı ekli anahtarlardan alfabetik olarak **ilk** olanı cihaz
+   anahtarına kopyalar.
+2. Kullanıcı ekli anahtarları **silmez** — yedek olarak durmaya devam eder.
+3. Artık kullanılmayan `rezonans_user_session`, `rezonans_users_v1` ve
+   `rezonans_legacy_migrated_v1` anahtarlarını temizler.
+
+Cihaz anahtarı zaten varsa hiçbir şey kopyalanmaz; mevcut kayıtlar korunur.
+Birden fazla kullanıcının ayrı kaydı varsa yalnızca biri cihaz anahtarına gelir;
+diğerleri `__<kullanıcı>` anahtarlarında elle kalır.
+
+> Fiziksel yer açma kontrol listesi (`rezonans_clearing_checks_v1`) zaten cihaz
+> düzeyindedir; taşınan bir şey yoktur.
 
 ---
 
 ## 🛡️ Yönetim Kapısı
 
-İçerik panelini açan kapı **bir kullanıcı hesabı değildir** ve dışarıdan gelenler
-bu şifreyi bilmeden panele giremez:
+İçerik panelini açan kapı **uygulamanın geri kalanından bağımsızdır**: açılışta
+hiçbir şey sormaz, yalnızca panel açılmak istendiğinde devreye girer. Dışarıdan
+gelenler bu şifreyi bilmeden panele giremez:
 
 | | |
 | --- | --- |
@@ -99,11 +85,10 @@ bu şifreyi bilmeden panele giremez:
 | Oturum süresi | 8 saat, sonra tekrar şifre gerekir |
 | Değiştirme | Panelden "Şifreyi Değiştir" (mevcut şifre doğrulanır) veya "Yeni Şifre Üret" (rastgele, bir kez gösterilir) |
 | Unutma kurtarma | Şifre belirlenirken **bir kez gösterilen bir kurtarma kodu** üretilir. Kapıdaki "Şifremi Unuttum" ile bu kod doğrulanır; eski şifre ve eski kod silinir, hemen yeni şifre belirlenir. |
-| Kullanıcı şifrelerine etkisi | **Yoktur.** Yönetim şifresi yalnızca paneli açar; hiçbir kullanıcı hesabını göremez, şifre değiştiremez veya silemez. |
+| Etkisi | **Yalnızca içerik paneline erişir.** Kayıtlara veya uygulama kullanımına dokunmaz. |
 
-Kullanıcı şifrelerini yalnızca hesabın sahibi değiştirebilir. "Yönetimden Çık"
-panelin kilidini sıfırlar ama **kullanıcı oturumunu kapatmaz**; kullanıcı çıkışı
-başlıktaki **Çıkış** düğmesindedir.
+"Yönetimden Çık" yalnızca panelin kilidini sıfırlar; **uygulama açık kalır** ve
+kayıtlar etkilenmez.
 
 ### Kurtarma kodu
 
@@ -114,8 +99,8 @@ hash'i (`rezonans_admin_recovery_v1`) saklanır. Panel kapanınca veya kapı
 açılınca kodun düz metni DOM'dan da silinir.
 
 - **Kaybettiyseniz:** kapıdaki "Şifremi Unuttum" → kodu girin → eski şifre ve eski
-  kod kalıcı olarak silinir → yeni şifre belirlersiniz. Kullanıcı hesapları ve
-  içerik **hiç etkilenmez**.
+  kod kalıcı olarak silinir → yeni şifre belirlersiniz. İçerik ve kayıtlar
+  **hiç etkilenmez**.
 - **Yanlış kod** şifreyi silmez; yalnızca reddedilir.
 - **Yenileme:** panel açıkken "Kurtarma Kodu Yenile" eski kodu anında geçersiz
   kılar ve yenisini bir kez daha gösterir.
@@ -133,8 +118,8 @@ eliyle tutuluyorsa o kişi zaten tarayıcı verisine erişebilir; bu yüzden kod
 | Sekme | İşlev |
 | --- | --- |
 | **📝 İçerik** | 9 koleksiyonu (düşünür kartları, dil tuzakları, su frekansları, günün kartları, inanç örnekleri, fiziksel yer kategorileri, alfa senaryoları, dirençsiz işaretler, arayüz sözlüğü) form veya JSON editörüyle düzenleme. Kaydet → uygulama anında yeniden render edilir. Ekle / sil / çoğalt / sırala ve "Geri Al" desteği. |
-| **📊 Analitik** | Toplam ziyaret, giriş sayısı, ilk/son kullanım damgası, bölüm bazlı görüntülenme ve etkileşim sayaçları, en çok açılan alanlar. Sayaçlar cihaz düzeyindedir; "Sandıktaki Niyet" ve "Kanıt Kaydı" ise **o anki kullanıcının kendi kayıtlarını** sayar. |
-| **💾 Yedekleme** | Tüm içerik override'larını tek `.json` dosyasına aktarma / geri yükleme, yönetim şifresini değiştirme veya yeni şifre üretme, kurtarma kodu yenileme, bu tarayıcıdaki kullanıcı hesaplarını listeleme, başlangıç değerlerine sıfırlama. **Şifreler, kurtarma kodları ve kullanıcı adları yedeklenmez.** |
+| **📊 Analitik** | Toplam ziyaret, ilk/son kullanım damgası, bölüm bazlı görüntülenme ve etkileşim sayaçları, en çok açılan alanlar. Sayaçlar cihaz düzeyindedir; "Sandıktaki Niyet" ve "Kanıt Kaydı" da o cihazdaki kayıtları sayar. |
+| **💾 Yedekleme** | Tüm içerik override'larını tek `.json` dosyasına aktarma / geri yükleme, yönetim şifresini değiştirme veya yeni şifre üretme, kurtarma kodu yenileme, başlangıç değerlerine sıfırlama. **Şifreler ve kurtarma kodları yedeklenmez.** |
 
 **Tehlikeli işlemler:** "Tüm içerikleri sıfırla" yalnızca içerik override'larını siler; Dilek Sandığı, kanıt zinciri, 72 saat sayacı ve şifreler korunur. "Analitiği sıfırla" yalnızca sayaçları temizler.
 
@@ -145,16 +130,18 @@ eliyle tutuluyorsa o kişi zaten tarayıcı verisine erişebilir; bu yüzden kod
   "meta": {
     "app": "rezonans-kanunu",
     "format": 1,
-    "exportedAt": "2026-01-01T00:00:00.000Z",
-    "accountCount": 3
+    "exportedAt": "2026-01-01T00:00:00.000Z"
   },
   "content": { "cards": [ /* ... */ ], "trapDictionary": [ /* ... */ ] }
 }
 ```
 
-`meta.accountCount` yalnızca o tarayıcıda kaç kullanıcı hesabı tanımlı olduğunu söyler. **Kullanıcı adları, şifreler (hash dahil), yönetim şifresi ve kurtarma kodu yedeğe hiç dâhil edilmez.** Yedek yüklendiğinde yalnızca içerik gelir; giriş bilgileri o cihazdakilerden belirlenir. Bu sayede aynı yedek farklı cihazlara yüklendiğinde her cihaz kendi kullanıcı adlarını ve şifrelerini kullanır.
+**Yalnızca içerik yedeklenir.** Yönetim şifresi, kurtarma kodu ve kayıtlar yedeğe
+hiç dâhil edilmez; yedek yüklendiğinde gelen tek şey içerik katmanıdır.
 
-Eski formatlı yedekler (`meta.users`, `meta.username`, `meta.hasCustomPassword`, `version`) sorunsuz yüklenir; içerik alınır, kimlik bilgileri değişmez.
+Eski formatlı yedekler (`meta.users`, `meta.username`, `meta.accountCount`,
+`meta.hasCustomPassword`, `version`) sorunsuz yüklenir; içerik alınır, ek
+alanlar yok sayılır.
 
 ---
 
@@ -202,9 +189,9 @@ rezon/
 | **Alıntı Spotlights** | Rastgele alıntı döngüsü |
 | **Dilek Sandığı** | Tüm niyet, köprü cümle ve teslimiyet kayıtlarının kart ızgarası; silme / toplu temizleme |
 | **Tema & Dil** | Karanlık / aydınlık mod ve TR / EN dil geçişi, tercihler kalıcı |
-| **Kullanıcı Girişi & Kayıt** | Tek sayfada üç mod (giriş / kayıt / şifre değiştirme). Dışarıdan gelen herkes kendi hesabını açar; **varsayılan kullanıcı adı/şifre ve önceden tanımlı kadro yoktur.** SHA-256 şifre, 8 saatlik oturum (kaba yük engeli, güvenlik sınırı değil) |
-| **Kişiye özel kayıtlar** | Dilek Sandığı, 72 saat kanıtı ve sayaç kullanıcı adına göre ayrıştırılmış anahtarlarda tutulur; aynı cihazdaki başka kullanıcılar göremez |
-| **Yönetim Kapısı** | İçerik panelini açan, kullanıcı hesabından bağımsız gizli şifre. Kaynak kodunda varsayılanı yoktur, ilk kullanımda belirlenir, yalnızca hash olarak saklanır |
+| **Girişsiz kullanım** | Giriş ekranı, hesap, oturum ve Çıkış düğmesi **yoktur**; dosya açılır açılmaz uygulama görünür |
+| **Cihaz düzeyi kayıtlar** | Dilek Sandığı, 72 saat kanıtı ve sayaç cihaz düzeyindeki sabit anahtarlarda tutulur; kullanıcıya göre ayrıştırma yapılmaz |
+| **Yönetim Kapısı** | Yalnızca içerik panelini açan gizli şifre. Kaynak kodunda varsayılanı yoktur, ilk kullanımda belirlenir, yalnızca hash olarak saklanır |
 | **Kurtarma Kodu** | Şifre belirlenirken bir kez gösterilen 16 karakterlik kod; unutulan yönetim şifresini kod ile sıfırlamayı sağlar, yalnızca hash olarak saklanır |
 | **Yönetim Paneli** | 9 koleksiyonu tarayıcıdan düzenleme, JSON yedekleme/geri yükleme, ziyaret ve bölüm analitiği, yönetim şifresi yönetimi |
 
@@ -216,24 +203,23 @@ Tüm kalıcı veriler tarayıcının `localStorage` alanında tutulur; hiçbir i
 
 | Anahtar | İçerik |
 | --- | --- |
-| `rezonans_kanunu_wishes_v2__<kullanıcı>` | O kullanıcının Dilek Sandığı kayıtları (`title`, `text`, `type`, `released`, `date`, `id`) |
-| `rezonans_kanunu_evidence_v2__<kullanıcı>` | O kullanıcının 72 saat kuralı kanıt zinciri listesi |
-| `rezonans_kanunu_sync_timer_v2__<kullanıcı>` | O kullanıcının aktif 72 saatlik niyeti (`text`, `endTime`) |
-| `rezonans_clearing_checks_v1` | Fiziksel yer açma kontrol listesi durumu (id → boolean), cihaz düzeyi |
+| `rezonans_kanunu_wishes_v2` | Dilek Sandığı kayıtları (`title`, `text`, `type`, `released`, `date`, `id`) |
+| `rezonans_kanunu_evidence_v2` | 72 saat kuralı kanıt zinciri listesi |
+| `rezonans_kanunu_sync_timer_v2` | Aktif 72 saatlik niyet (`text`, `endTime`) |
+| `rezonans_clearing_checks_v1` | Fiziksel yer açma kontrol listesi durumu (id → boolean) |
 | `rezonans_theme` | `dark` \| `light` |
 | `rezonans_app_lang` | `tr` \| `en` |
-| `rezonans_users_v1` | Kullanıcı kadrosu: `[{ "name": "...", "hash": "<64 hex>", "createdAt": 0 }]` — hesabı açan herkes için bir kayıt. Şifreler yalnızca hash olarak tutulur. |
-| `rezonans_user_session` | Kullanıcı oturumu (`{ exp, user }`, 8 saat) |
-| `rezonans_admin_pw` | Yönetim şifresinin SHA-256 hash'i (kullanıcı hesabı değildir) |
+| `rezonans_admin_pw` | Yönetim şifresinin SHA-256 hash'i |
 | `rezonans_admin_recovery_v1` | Kurtarma kodunun SHA-256 hash'i (düz metin hiçbir yerde saklanmaz) |
 | `rezonans_admin_session` | Yönetim paneli oturumu (`{ exp }`, 8 saat) |
-| `rezonans_legacy_migrated_v1` | `"1"` — kullanıcı öncesi cihaz verisinin taşındığının bayrağı |
 | `rezonans_admin_content_v1` | Panelden yapılan içerik override'ları (anahtar → dizi/nesne) |
-| `rezonans_admin_analytics_v1` | Sayaçlar (`visits`, `logins`, `sections`, `events`, `firstSeen`, `lastSeen`, `lastLogin`) |
+| `rezonans_admin_analytics_v1` | Sayaçlar (`visits`, `sections`, `events`, `firstSeen`, `lastSeen`) |
 
-Kullanıcı adı her zaman küçük harfe indirgenir ve `trim()` uygulanır; bu yüzden
-`<kullanıcı>` anahtar parçası sabittir ve `  Ahmet.Y ` ile `ahmet.y` aynı kayda
-gider. Bu anahtarlar **kimlik bilgisi değildir**; yalnızca depolama yeridir.
+`rezonans_kanunu_*_v2__<kullanıcı>` biçimindeki eski anahtarlar kullanılmaz;
+`adoptUserScopedData()` onları okur, gerekirse cihaz anahtarına kopyalar ve
+sonra yalnızca kullanılmayan `rezonans_user_session`, `rezonans_users_v1` ve
+`rezonans_legacy_migrated_v1` anahtarlarını siler. Kullanıcı ekli kayıtlar
+kullanıcı adı ekiyle birlikte **silinmez**.
 
 ### İç Veri Dizileri
 
@@ -313,8 +299,9 @@ Bu kaynak diziye (`DEFAULT_WATER_FREQUENCIES`) eklenir. Yalnızca tarayıcıda d
 - **Nefes egzersizi** saf istemci tarafıdır; tarayıc sekmesi arka plana alınırsa `setInterval` throttling'e tabi olabilir.
 - **Panoya kopyalama** `document.execCommand('copy')` ile çalışır; bu yöntem modern tarayıcılarda giderek daha fazla tarayıcı güvenliği kısıtlamasına tabidir.
 - **Panelden girilen metin çalıştırılamaz.** Tüm içerik render'ları `escapeHtml()` kullanır ve hiçbir yerde `innerHTML` içine gömülü `onclick` yoktur; etkileşimler `data-*` öznitelikleriyle olay temsilciliğine bağlanır. Yine de **JSON yedeği yalnızca kendi ürettiğiniz dosyalardan yükleyin** — başka birinin dosyası güvenilmeyen girdidir.
-- **Giriş ve kilit katmanı Tailwind'e bağlı değildir.** `#user-login`, `#admin-gate`, `body.app-locked .app-shell`, `body.admin-gate-open #admin-gate` ve `#admin-panel` kuralları dosyanın kendi `<style>` bloğundadır; CDN yüklenemese bile giriş ekranı ve yönetim kapısı doğru çalışır.
-- **Kayıt → giriş → çıkış zinciri tek oturumdur.** Başarılı kayıtta veya girişte `enterApp()` çalışır ve uygulama kabuğu açılır; başlıktaki Çıkış yalnızca `rezonans_user_session` anahtarını siler, kayıtlar silinmez.
+- **Yönetim kapısı Tailwind'e bağlı değildir.** `#admin-gate`, `body.admin-gate-open #admin-gate` ve `#admin-panel` kuralları dosyanın kendi `<style>` bloğundadır; CDN yüklenemese bile yönetim kapısı doğru çalışır. Uygulama kabuğu kilitlenmez, `body.app-locked` kuralı artık yoktur.
+- **Kayıtlar cihaz düzeyindedir.** Aynı tarayıcıda her açılışta aynı Dilek Sandığı ve 72 saat kayıtları görülür; ayrı hesap veya oturum kavramı yoktur.
+- **Üst çubuk dar ekranda sarılır.** 390px altındaki genişliklerde başlık bloğu ile düğme grubu alt alta geçer, "Günün Frekansı" etiketi gizlenir; yatay sayfa kaydırması oluşmaz.
 
 ---
 
@@ -324,18 +311,19 @@ Uygulama `localStorage`, `backdrop-filter`, `IntersectionObserver` ve `crypto.su
 
 Şifre hash'i iki yolla hesaplanır: `crypto.subtle` (güvenli bağlam) ve kullanılabilir olduğunda saf JS fallback'i. İkisi de UTF-8 baytlar üzerinde çalışır ve aynı sonucu üretir; `file://` gibi `crypto.subtle`'ın kapalı olduğu bağlamlarda da Türkçe karakterli şifreler sorunsuz çalışır.
 
-Kullanıcı adı karşılaştırması `trim().toLowerCase()` ile yapılır, yani büyük/küçük harf ve çevresi boşluk fark etmez. Kullanıcı adı hatalı olsa bile şifre hash'i yine hesaplanır; böylece hata mesajı ve yanıt süresi hangi alanın yanlış olduğunu ele vermez.
+Yönetim şifresi doğrulamasında hash yine her denemede hesaplanır; böylece hata mesajı ve yanıt süresi şifrenin doğru olup olmadığını ele vermez.
 
 ### Doğrulama durumu
 
 | Alan | Kapsam |
 | --- | --- |
 | SHA-256 (her iki yol) | Node 24 ile 16 farklı girdi (Türkçe karakter, emoji, CJK, 55/56/57/64/1000 bayt) karşılaştırmalı doğrulandı — hepsi referans hash ile aynı |
-| Kaynak sızıntısı | `index.html` ve `README.md` üzerinde otomatik tarama: eski kullanıcı adları, eski üretilmiş parolalar, 64 haneli sabit hash, eski iki hesaplı kurulum kalıntıları, eski per-user şifre yönetimi, sabit hesap listesi ve kullanıcısız veri anahtarı kullanımı **0 eşleşme** |
-| Uçtan uca tarayıcı | Chrome (headless, `http://127.0.0.1` üzerinden) ile **140 test, 0 hata**: tek giriş sayfası ve üç mod, kurulum ekranı olmaması, dışarıdan gelenin kayıt olması, kısa/eşleşmeyen/aynı kullanıcı adı reddi, otomatik giriş ve başlık rozeti, çıkış, **iki kullanıcı arasında Dilek Sandığı ve 72 saat izolasyonu**, hatalı şifre, kullanıcının kendi şifresini değiştirmesi (yanlış mevcut şifre reddi, eski şifrenin geçersizleşmesi, veri kaybı olmaması), **yönetim kapısının ilk kullanımda şifre belirlemesi, tekrarsız doğrulama, yanlış yönetim şifresinin reddi, kurtarma kodunun bir kez gösterilip yalnızca hash olarak saklanması, yedekte kurtarma kodu sızmaması, yanlış kurtarma kodunun şifreyi silmemesi, doğru kodla şifrenin sıfırlanması ve kapının "belirle" moduna dönmesi, eski kodun geçersizleşmesi, kurtarma sonrası kullanıcı verisinin korunması, panelden kurtarma kodu yenileme, panel kapanınca kodun DOM'dan silinmesi**, panelde kullanıcı listesi, panelde hash/şifre sızmaması, kullanıcı şifresinin panelden değiştirilememesi, yedekte kimlik sızmaması, analitik giriş sayacı, yönetimden çıkışın kullanıcı oturumunu kapatmaması, eski cihaz verisinin yalnızca ilk kullanıcıya bir kez taşınması |
-| Duyarlılık | Chrome headless ile **7 viewport, 0 hata** (1920×1080, 1366×640, 1280×720, 1024×600, 820×1180, 390×844, 360×640): giriş, kayıt, şifre değiştirme ve yönetim kapısı kartları ekrana sığıyor, üstten kırpılmıyor, yatay sayfa kaydırması oluşmuyor |
-| Statik denetim | 4 satır içi `<script>` bloğunun tamamı ayrıştırılıyor; 129 `getElementById` hedefinin tamamı markup'ta mevcut; kullanılmayan `data-*` kancası yok |
-| Yayınlanan sürüm | GitHub Pages adresine Chrome (headless) ile **38 test, 0 hata**: canlıda tek giriş sayfası, dışarıdan gelenin kaydı, iki kullanıcı arasında veri izolasyonu, **kurtarma kodunun canlıda bir kez gösterilmesi ve yalnızca hash olarak saklanması, yedekte kod sızmaması, kapıdaki "Şifremi Unuttum", yanlış kodun şifreyi silmemesi, doğru kodla sıfırlama ve kullanıcı verisinin korunması**, yönetim kapısının ilk kullanımda şifre belirlemesi, panelde iki kullanıcı listesi, yedekte kimlik sızmaması, yönetimden çıkışın kullanıcı oturumunu kapatmaması, şifre değiştirme ve veri korunması. Sayfa hatası ve konsol hatası yoktur (yalnızca tarayıcının `favicon.ico` isteği 404 döner, uygulamayla ilgisi yoktur) |
+| Kaynak sızıntısı | `index.html` ve `README.md` üzerinde tarama: giriş/kayıt/oturum/kullanıcı kadrosu işlevi, `userKey`, `accountCount`, `lastLogin`, giriş sayacı ve kullanıcı listesi işareti **0 eşleşme** (yalnızca `registerVisit` kalır, ziyaret sayacıdır) |
+| Uçtan uca tarayıcı | Chrome headless (CDP) ile **27 test, 0 hata**: giriş markup'ının ve kilit sınıfının kalkması, uygulama kabuğunun görünürlüğü, bölüm render'ı, kapının başlangıçta gizli olması, **eski kullanıcı ekli kaydın cihaz anahtarına alınması ve sandıkta görünmesi, oturum ve kadro anahtarlarının silinmesi, kullanıcı ekli kaydın korunması, mevcut cihaz anahtarının ezilmemesi**, yönetim kapısının ilk kullanımda şifre belirlemesi, kurtarma kodunun bir kez gösterilip yalnızca hash olarak saklanması, yedekte kod sızmaması, yönetimden çıkışın uygulamayı açık bırakması ve kapıyı doğrulama moduna döndürmesi, yanlış şifrenin reddi, analitik görünümü ve giriş sayacının olmaması, Escape ile panel kapanması, 360px'te yatay kaydırma olmaması |
+| Özellik dönüşü | Chrome headless (CDP) ile **13 test, 0 hata**: tema ve dil geçişi + kalıcılık, günün frekansı modalı, niyet ekleme/silme/yeniden yükleme sonrası kalıcılık, yedek özetinin kimlik bilgisi içermemesi, içerik override'ı ve sıfırlama, yakalanmamış istisna yok |
+| Duyarlılık | Chrome headless ile **7 viewport, 0 hata** (1920×1080, 1366×640, 1280×720, 1024×600, 820×1180, 390×844, 360×640): uygulama kabuğu görünür, yönetim kapısı kartı ekrana sığıyor, yatay sayfa kaydırması oluşmuyor |
+| Statik denetim | 4 satır içi `<script>` bloğunun tamamı `node --check` ile ayrıştırılıyor; `getElementById` hedeflerinin tamamı markup'ta mevcut; kullanılmayan `data-*` kancası yok |
+| Yayınlanan sürüm | Bu değişiklikten sonra GitHub Pages sürümü yeniden test edilmedi. Yayın öncesi canlı adreste aynı CDP kontrollerinin çalıştırılması önerilir. |
 
 
 Edge, Firefox ve Safari üzerinde otomatik test yapılmadı; bu tarayıcılarda manuel olarak doğrulanması önerilir.

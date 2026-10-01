@@ -146,11 +146,10 @@
       color: #1e293b !important;
     }
 
-/* --- ADMIN: LOCK LAYER --- */
-/* Bu kurallar Tailwind'den bagimsizdir: CDN yuklenemezse de giris
-   ekrani dogru gosterilir ve uygulama kabugu gizli kalir. */
-    #user-login, #admin-gate { display: none; }
-    body.app-locked #user-login,
+    /* --- ADMIN: LOCK LAYER --- */
+    /* Bu kurallar Tailwind'den bagimsizdir: CDN yuklenemezse de yonetim
+       kapisi dogru gosterilir ve icerik paneli gizli kalir. */
+    #admin-gate { display: none; }
     body.admin-gate-open #admin-gate {
       display: flex;
       position: fixed;
@@ -164,18 +163,10 @@
     }
     /* Esnek kutu ortalamasi: align-items:center icerik sigmiyorsa ustten
        kirpilir; "safe center" bunu onler. */
-    #user-login > div.relative,
     #admin-gate > div.relative { margin-block: auto; }
-    body.app-locked .app-shell { display: none !important; }
-    body.app-locked { overflow: hidden; }
 
-    /* Kayit ve sifre-degistir modlarina ozgu alanlar. Varsayilan
-       (giris) modunda gizli kalir. */
-    #user-password-confirm-wrap,
-    #user-newpassword-wrap { display: none; }
-    #user-login.is-register #user-password-confirm-wrap,
-    #user-login.is-change #user-password-confirm-wrap,
-    #user-login.is-change #user-newpassword-wrap { display: block; }
+    /* Yonetim kapisinin "belirle" ve "degistir" modlarina ozgu alanlar.
+       Varsayilan (dogrulama) modunda gizli kalir. */
     #admin-gate.is-create #admin-gate-confirm-wrap,
     #admin-gate.is-change #admin-gate-confirm-wrap,
     #admin-gate.is-change #admin-gate-new-wrap { display: block; }
@@ -188,22 +179,14 @@
        Aksi halde 600px yukseklikli dizunustede form ekrana sigmaz ve
        kullanicinin sayfayi kucultmesi gerekir. */
     @media (max-height: 900px) {
-      #user-login .glass-card,
       #admin-gate .glass-card { padding: 1.25rem !important; }
-      #user-login .glass-card > .w-16,
       #admin-gate .glass-card > .w-16 { display: none; }
-      #user-login .glass-card > h1,
       #admin-gate .glass-card > h1 { margin-top: 0; font-size: 1.25rem; }
-      #user-login-form,
       #admin-gate-form { margin-top: 1rem !important; }
-      #user-login-form input,
       #admin-gate-form input { padding-top: .5rem; padding-bottom: .5rem; }
-      #user-login-form button[type="submit"],
       #admin-gate-form button[type="submit"] { padding-top: .6rem; padding-bottom: .6rem; }
     }
     @media (max-height: 700px) {
-      #user-login .glass-card > p.mt-3,
-      #user-login .glass-card > p.mt-6,
       #admin-gate .glass-card > p.mt-3,
       #admin-gate .glass-card > p.mt-6 { display: none; }
     }
@@ -229,29 +212,22 @@
   <script>
     /* ============================================================
        ADMIN CORE
-       Şifre doğrulaması, oturum, içerik deposu ve analitik.
+       Yönetim şifresi, oturum, içerik deposu ve analitik.
        Uygulama içeriğinden ÖNCE çalışır; içeriğin DOM'a hiç
        basılmadan kilitlenmesi için gereklidir.
        ============================================================ */
     var ADMIN = (function () {
-      var SESSION_KEY = 'rezonans_user_session';
       var CONTENT_KEY = 'rezonans_admin_content_v1';
       var ANALYTICS_KEY = 'rezonans_admin_analytics_v1';
 
-      /* Kullanıcı hesapları kaynak kodunda YOKTUR ve bir kurulum ekranı da
-         YOKTUR. Dışarıdan gelen herkes tek giriş sayfasından kendi
-         hesabını açabilir; kayıtlar yalnızca bu tarayıcıda saklanır.
-         Şifreler düz metin değil, SHA-256 hash'i olarak yazılır. */
-      var USERS_KEY = 'rezonans_users_v1';
-      var MIGRATED_KEY = 'rezonans_legacy_migrated_v1';
+      /* Kullanıcı hesabı ve giriş katmanı YOKTUR: uygulama doğrudan
+         açılır, kayıtlar bu tarayıcıda cihaz düzeyinde saklanır. */
       var SESSION_TTL = 8 * 60 * 60 * 1000;
       var PASSWORD_MIN_LENGTH = 8;
-      var USERNAME_MIN_LENGTH = 3;
 
-      /* Yönetim paneli bir kullanıcı hesabı DEĞİLDİR. Kullanıcı
-         girişinden bağımsız, gizli bir şifreyle açılan ayrı kapıdır ve
-         kaynak kodunda varsayılan şifresi yoktur; ilk kez yönetim
-         ekranından belirlenir. */
+      /* Yönetim paneli cihaz düzeyinde çalışır; gizli bir şifreyle açılan
+         ayrı kapıdır ve kaynak kodunda varsayılan şifresi yoktur; ilk kez
+         yönetim ekranından belirlenir. */
       var ADMIN_PW_KEY = 'rezonans_admin_pw';
       var ADMIN_SESSION_KEY = 'rezonans_admin_session';
       var ADMIN_RECOVERY_KEY = 'rezonans_admin_recovery_v1';
@@ -379,92 +355,8 @@
         return Promise.resolve(sha256Bytes(bytes));
       }
 
-      /* ---------- Kullanıcılar ---------- */
-      /* Girişte büyük/küçük harf ve çevresi boşluk önemsizdir.
-         Kadro localStorage'da [{ name, hash }] dizisi olarak durur. */
-      function normalizeUsername(value) {
-        return String(value == null ? '' : value).trim().toLowerCase();
-      }
-
-      function isValidUsername(value) {
-        var name = normalizeUsername(value);
-        return name.length >= USERNAME_MIN_LENGTH && /^[a-z0-9._-]+$/.test(name);
-      }
-
-      function readRoster() {
-        try {
-          var raw = localStorage.getItem(USERS_KEY);
-          if (!raw) return [];
-          var parsed = JSON.parse(raw);
-          if (!Array.isArray(parsed)) return [];
-          var seen = {}, out = [];
-          for (var i = 0; i < parsed.length; i++) {
-            var entry = parsed[i];
-            if (!entry || typeof entry.name !== 'string') continue;
-            var name = normalizeUsername(entry.name);
-            if (!isValidUsername(name) || seen[name]) continue;
-            seen[name] = true;
-            out.push({
-              name: name,
-              hash: /^[0-9a-f]{64}$/i.test(entry.hash || '') ? entry.hash : null,
-              createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : 0
-            });
-          }
-          return out;
-        } catch (e) { return []; }
-      }
-
-      function writeRoster(list) {
-        localStorage.setItem(USERS_KEY, JSON.stringify(list));
-      }
-
-      function resolveUsername(value) {
-        var wanted = normalizeUsername(value);
-        if (!wanted) return null;
-        var roster = readRoster();
-        for (var i = 0; i < roster.length; i++) {
-          if (roster[i].name === wanted) return roster[i].name;
-        }
-        return null;
-      }
-
-      function listUsers() {
-        return readRoster().map(function (u) {
-          return { name: u.name, label: u.name, custom: !!u.hash, createdAt: u.createdAt };
-        });
-      }
-
-      function userExists(value) {
-        return !!resolveUsername(value);
-      }
-
-      /* ---------- Şifreler ---------- */
-      function setHashOf(name, hash) {
-        var roster = readRoster(), found = false;
-        for (var i = 0; i < roster.length; i++) {
-          if (roster[i].name === name) { roster[i].hash = hash; found = true; }
-        }
-        if (!found) roster.push({ name: name, hash: hash });
-        writeRoster(roster);
-      }
-
-      function getPasswordHash(username) {
-        var name = resolveUsername(username);
-        if (!name) return null;
-        var roster = readRoster();
-        for (var i = 0; i < roster.length; i++) {
-          if (roster[i].name === name) return roster[i].hash || null;
-        }
-        return null;
-      }
-
-      function hasCustomPassword(username) {
-        return !!getPasswordHash(username);
-      }
-
-      /* Sıfırlama artık "başlangıç şifresi"ne dönmez; öyle bir şifre yok.
-         Bunun yerine güçlü rastgele bir şifre üretilir ve düz metni
-         YALNIZCA bir kez, çağırana döndürülür. */
+      /* Güçlü rastgele bir şifre üretir; düz metni YALNIZCA bir kez,
+         çağırana döndürülür. */
       function generatePassword() {
         var alphabet = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*-_';
         var bytes = new Uint8Array(16);
@@ -479,8 +371,8 @@
       }
 
       /* ---------- Yönetim paneli şifresi ----------
-         Kullanıcı hesaplarından tamamen ayrıdır. Kaynak kodunda şifre
-         YOKTUR; ilk çağrıda belirlenir, sonrasında doğrulanır. */
+         Kaynak kodunda şifre YOKTUR; ilk çağrıda belirlenir, sonrasında
+         doğrulanır. */
       function hasAdminPassword() {
         try {
           return /^[0-9a-f]{64}$/i.test(localStorage.getItem(ADMIN_PW_KEY) || '');
@@ -578,97 +470,6 @@
         try { localStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
       }
 
-      /* ---------- Oturum ---------- */
-      function isAuthed() {
-        try {
-          var raw = localStorage.getItem(SESSION_KEY);
-          if (!raw) return false;
-          var session = JSON.parse(raw);
-          if (!session || typeof session.exp !== 'number') return false;
-          if (Date.now() > session.exp) { localStorage.removeItem(SESSION_KEY); return false; }
-          return true;
-        } catch (e) {
-          return false;
-        }
-      }
-
-      function startUserSession(name) {
-        localStorage.setItem(SESSION_KEY, JSON.stringify({
-          exp: Date.now() + SESSION_TTL,
-          user: name
-        }));
-        bumpAnalytics({ logins: 1 });
-        setAnalyticsField('lastLogin', new Date().toISOString());
-        return true;
-      }
-
-      function login(username, password) {
-        var name = resolveUsername(username);
-        var expected = name ? getPasswordHash(name) : null;
-        /* Kullanıcı adı yanlış olsa bile şifre hash'lenir; aksi halde
-           "bilinmeyen kullanıcı" ile "yanlış şifre" yanıt süresinden
-           ayırt edilebilirdi. */
-        return sha256(password == null ? '' : password).then(function (hash) {
-          if (!name || !expected || hash !== expected) return false;
-          return startUserSession(name);
-        });
-      }
-
-      /* Dışarıdan gelen herkes kendi hesabını açabilir: kurulum ekranı
-         yoktur, tek giriş sayfasındaki "kayıt ol" modu kullanılır. */
-      function registerUser(username, password) {
-        var name = normalizeUsername(username);
-        if (!isValidUsername(name)) {
-          return Promise.reject(new Error(
-            'Kullanıcı adı en az ' + USERNAME_MIN_LENGTH + ' karakter olmalı ve sadece harf, rakam, nokta, alt çizgi ve tire içerebilir.'
-          ));
-        }
-        if (userExists(name)) {
-          return Promise.reject(new Error('Bu kullanıcı adı zaten alınmış. Başka bir ad deneyin.'));
-        }
-        if (!password || password.length < PASSWORD_MIN_LENGTH) {
-          return Promise.reject(new Error('Şifre en az ' + PASSWORD_MIN_LENGTH + ' karakter olmalı.'));
-        }
-        return sha256(password).then(function (hash) {
-          var roster = readRoster();
-          roster.push({ name: name, hash: hash, createdAt: Date.now() });
-          writeRoster(roster);
-          return name;
-        }).then(function (name) {
-          return startUserSession(name);
-        });
-      }
-
-      /* Kullanıcı kendi şifresini değiştirir; mevcut şifre doğrulanır. */
-      function changePassword(username, currentPassword, newPassword) {
-        var name = resolveUsername(username);
-        if (!name) return Promise.reject(new Error('Kullanıcı adı veya şifre hatalı.'));
-        if (!newPassword || newPassword.length < PASSWORD_MIN_LENGTH) {
-          return Promise.reject(new Error('Yeni şifre en az ' + PASSWORD_MIN_LENGTH + ' karakter olmalı.'));
-        }
-        var expected = getPasswordHash(name);
-        return sha256(currentPassword == null ? '' : currentPassword).then(function (hash) {
-          if (!expected || hash !== expected) {
-            throw new Error('Kullanıcı adı veya şifre hatalı.');
-          }
-          return sha256(newPassword);
-        }).then(function (hash) {
-          setHashOf(name, hash);
-          return true;
-        });
-      }
-
-      function getSessionUser() {
-        try {
-          var session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-          return (session && session.user) ? session.user : '';
-        } catch (e) { return ''; }
-      }
-
-      function logout() {
-        try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
-      }
-
       /* ---------- İçerik deposu ---------- */
       function getContentStore() {
         try {
@@ -711,17 +512,15 @@
 
       /* ---------- Analitik ---------- */
       function getAnalytics() {
-        var empty = { visits: 0, logins: 0, firstSeen: null, lastSeen: null, lastLogin: null, sections: {}, events: {} };
+        var empty = { visits: 0, firstSeen: null, lastSeen: null, sections: {}, events: {} };
         try {
           var raw = localStorage.getItem(ANALYTICS_KEY);
           var parsed = raw ? JSON.parse(raw) : null;
           if (!parsed || typeof parsed !== 'object') return empty;
           return {
             visits: parsed.visits || 0,
-            logins: parsed.logins || 0,
             firstSeen: parsed.firstSeen || null,
             lastSeen: parsed.lastSeen || null,
-            lastLogin: parsed.lastLogin || null,
             sections: parsed.sections && typeof parsed.sections === 'object' ? parsed.sections : {},
             events: parsed.events && typeof parsed.events === 'object' ? parsed.events : {}
           };
@@ -739,12 +538,6 @@
         Object.keys(partial || {}).forEach(function (key) {
           data[key] = (data[key] || 0) + partial[key];
         });
-        saveAnalytics(data);
-      }
-
-      function setAnalyticsField(key, value) {
-        var data = getAnalytics();
-        data[key] = value;
         saveAnalytics(data);
       }
 
@@ -774,8 +567,7 @@
           meta: {
             app: 'rezonans-kanunu',
             format: 1,
-            exportedAt: new Date().toISOString(),
-            accountCount: readRoster().length
+            exportedAt: new Date().toISOString()
           },
           content: getContentStore()
         };
@@ -786,7 +578,7 @@
         if (!payload.content || typeof payload.content !== 'object' || Array.isArray(payload.content)) {
           return { ok: false, error: 'Dosyada "content" nesnesi bulunamadı.' };
         }
-        /* Kullanıcı kadrosu ve şifreler yedeğe girmez: yedek alan/tarayıcı
+        /* Yönetim şifresi ve kurtarma kodu yedeğe girmez: yedek alan/tarayıcı
            taşıması için içerik taşır, kimlik bilgilerini taşımaz. */
         try {
           localStorage.setItem(CONTENT_KEY, JSON.stringify(payload.content));
@@ -798,18 +590,6 @@
 
 return {
         sha256: sha256,
-        listUsers: listUsers,
-        userExists: userExists,
-        resolveUsername: resolveUsername,
-        getPasswordHash: getPasswordHash,
-        hasCustomPassword: hasCustomPassword,
-        registerUser: registerUser,
-        changePassword: changePassword,
-        isAuthed: isAuthed,
-        getSessionUser: getSessionUser,
-        login: login,
-        logout: logout,
-        isValidUsername: isValidUsername,
         generatePassword: generatePassword,
         hasAdminPassword: hasAdminPassword,
         setAdminPassword: setAdminPassword,
@@ -820,7 +600,6 @@ return {
         createAdminRecovery: createAdminRecovery,
         verifyAdminRecovery: verifyAdminRecovery,
         clearAdminPassword: clearAdminPassword,
-        MIGRATED_KEY: MIGRATED_KEY,
         getContentStore: getContentStore,
         hasContent: hasContent,
         getContent: getContent,
@@ -830,82 +609,19 @@ return {
         overriddenKeys: overriddenKeys,
         getAnalytics: getAnalytics,
         bumpAnalytics: bumpAnalytics,
-        setAnalyticsField: setAnalyticsField,
         trackSection: trackSection,
         trackEvent: trackEvent,
         registerVisit: registerVisit,
         resetAnalytics: resetAnalytics,
         exportPayload: exportPayload,
         importPayload: importPayload,
-        PASSWORD_MIN_LENGTH: PASSWORD_MIN_LENGTH,
-        USERNAME_MIN_LENGTH: USERNAME_MIN_LENGTH
+        PASSWORD_MIN_LENGTH: PASSWORD_MIN_LENGTH
       };
     })();
 
   </script>
 
-  <!-- GİRİŞ KATMANI: tek sayfa, üç mod (giriş / kayıt / şifre değiştir) -->
-  <div id="user-login">
-    <div class="absolute inset-0 bg-cosmic-950"></div>
-    <div class="absolute inset-0 overflow-hidden">
-      <div class="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse-slow"></div>
-      <div class="absolute bottom-0 -right-24 w-[28rem] h-[28rem] bg-purple-600/15 rounded-full blur-3xl animate-float"></div>
-    </div>
-
-    <div class="relative w-full max-w-md mx-auto my-auto px-4">
-      <div class="glass-card rounded-3xl border border-white/10 shadow-2xl p-8 sm:p-10 text-center">
-        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-amber-300 flex items-center justify-center shadow-lg shadow-indigo-500/25">
-          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-          </svg>
-        </div>
-
-        <h1 class="mt-5 font-serif text-2xl font-bold text-white tracking-tight">Rezonans Kanunu</h1>
-        <p id="user-mode-title" class="mt-1 text-xs uppercase tracking-widest text-indigo-300 font-semibold">Giriş Yap</p>
-        <p id="user-mode-desc" class="mt-3 text-sm text-slate-300">Kendi kullanıcı adınızla girin. Hesabınız yoksa aynı sayfadan birkaç saniyede açabilirsiniz; Dilek Sandığınız ve 72 saat kayıtlarınız size özeldir.</p>
-
-        <form id="user-login-form" class="mt-7 space-y-4 text-left" autocomplete="off">
-          <div>
-            <label for="user-username" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Kullanıcı Adı</label>
-            <input id="user-username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Kullanıcı adı" class="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm">
-          </div>
-
-          <div>
-            <label for="user-password" id="user-password-label" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Şifre</label>
-            <input id="user-password" type="password" autocomplete="current-password" placeholder="••••••••" class="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm">
-          </div>
-
-          <div id="user-newpassword-wrap">
-            <label for="user-newpassword" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Yeni Şifre</label>
-            <input id="user-newpassword" type="password" autocomplete="new-password" placeholder="En az 8 karakter" class="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm">
-          </div>
-
-          <div id="user-password-confirm-wrap">
-            <label for="user-password-confirm" id="user-password-confirm-label" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Şifreyi Tekrarla</label>
-            <input id="user-password-confirm" type="password" autocomplete="new-password" placeholder="••••••••" class="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm">
-          </div>
-
-          <p id="user-error" class="hidden text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2"></p>
-
-          <button type="submit" id="user-submit" class="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm shadow-lg shadow-purple-900/30 transition-all">
-            Giriş Yap
-          </button>
-        </form>
-
-        <div class="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
-          <button type="button" data-user-mode="register" class="text-indigo-300 hover:text-indigo-200 underline underline-offset-4 transition-colors">Hesabım yok — kayıt ol</button>
-          <button type="button" data-user-mode="login" id="user-mode-back" class="hidden text-indigo-300 hover:text-indigo-200 underline underline-offset-4 transition-colors">Giriş yap</button>
-          <button type="button" data-user-mode="change" id="user-mode-change" class="text-slate-400 hover:text-slate-200 underline underline-offset-4 transition-colors">Şifremi değiştir</button>
-        </div>
-
-        <p class="mt-6 text-[11px] text-slate-500 leading-relaxed">
-          Hesaplar yalnızca bu tarayıcıda saklanır; şifreler SHA-256 hash'i olarak yazılır, düz metin hiçbir yerde tutulmaz. Bu koruma güvenlik sınırı değildir; yalnızca kaba yükten saklar.
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <!-- YÖNETİM KAPISI: bir kullanıcı hesabı değil, gizli şifreyle açılan ayrı kapı -->
+  <!-- YÖNETİM KAPISI: içerik panelini açan gizli şifreyle açılan ayrı kapı -->
   <div id="admin-gate" class="is-create">
     <div class="absolute inset-0 bg-cosmic-950"></div>
     <div class="absolute inset-0 overflow-hidden">
@@ -923,7 +639,7 @@ return {
 
         <h1 class="mt-5 font-serif text-2xl font-bold text-white tracking-tight">Yönetim Paneli</h1>
         <p id="admin-gate-title" class="mt-1 text-xs uppercase tracking-widest text-amber-300 font-semibold">Yönetim Şifresi</p>
-        <p id="admin-gate-desc" class="mt-3 text-sm text-slate-300">İçerikleri düzenlemek için yönetim şifresini girin. Bu kapı kullanıcı hesaplarından bağımsızdır ve dışarıdan gelenler bu şifreyi bilmeden panele erişemez.</p>
+        <p id="admin-gate-desc" class="mt-3 text-sm text-slate-300">İçerikleri düzenlemek için yönetim şifresini girin. Kaynak kodunda varsayılan bir şifre yoktur; ilk kez burada belirlersiniz.</p>
 
         <form id="admin-gate-form" class="mt-7 space-y-4 text-left" autocomplete="off">
           <div>
@@ -970,16 +686,16 @@ return {
   </div>
 
   <header class="sticky top-0 z-50 glass-card border-b border-white/10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-amber-300 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-20 py-3 sm:h-20 sm:py-0 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-amber-300 flex items-center justify-center shadow-lg shadow-indigo-500/20">
           <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
           </svg>
         </div>
-        <div>
-          <span class="font-serif text-xl sm:text-2xl font-bold tracking-tight text-white block" data-i18n="nav_title">Rezonans Kanunu</span>
-          <span class="text-xs text-indigo-300 font-medium tracking-wider uppercase" data-i18n="nav_subtitle">Pierre Franckh Uygulama Rehberi</span>
+        <div class="min-w-0">
+          <span class="font-serif text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-white block truncate" data-i18n="nav_title">Rezonans Kanunu</span>
+          <span class="hidden sm:block text-xs text-indigo-300 font-medium tracking-wider uppercase truncate" data-i18n="nav_subtitle">Pierre Franckh Uygulama Rehberi</span>
         </div>
       </div>
 
@@ -995,7 +711,7 @@ return {
         <a href="#dilek-sandigi" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_chest">Sandık</a>
       </nav>
 
-      <div class="flex items-center gap-2 sm:gap-3">
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
         <!-- TR / EN Language Switcher -->
         <div class="flex items-center p-1 rounded-xl bg-slate-900/80 border border-white/10 text-xs font-semibold">
           <button id="lang-btn-tr" onclick="changeLanguage('tr')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white transition-all">TR</button>
@@ -1007,23 +723,16 @@ return {
           <span id="theme-icon">🌙</span>
         </button>
 
-        <!-- Oturum: kimin giriş yaptığı -->
-        <div id="user-chip" class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-xs">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-          <span id="user-chip-name" class="font-semibold text-slate-200 max-w-[8rem] truncate"></span>
-          <button id="user-logout-btn" class="text-slate-400 hover:text-rose-300 transition-colors font-semibold" title="Çıkış yap">Çıkış</button>
-        </div>
-
-        <!-- Yönetim kapağı: kullanıcı hesabı değil, gizli şifre -->
+        <!-- Yönetim kapısı: içerik panelini açan gizli şifre -->
         <button id="admin-panel-btn" class="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-amber-300 border border-white/10 transition-all flex items-center justify-center shadow-md" title="Yönetim Şifresi">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
           </svg>
         </button>
 
-        <button id="quick-card-btn" class="text-xs sm:text-sm px-3.5 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 transition-all flex items-center gap-1.5 whitespace-nowrap">
+        <button id="quick-card-btn" class="text-xs sm:text-sm px-3 sm:px-3.5 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 transition-all flex items-center gap-1.5 whitespace-nowrap">
           <span>✨</span>
-          <span data-i18n="btn_daily_freq">Günün Frekansı</span>
+          <span class="hidden sm:inline" data-i18n="btn_daily_freq">Günün Frekansı</span>
         </button>
       </div>
     </div>
@@ -2135,12 +1844,7 @@ return {
               <button data-admin-act="renew-recovery" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all">Kurtarma Kodu Yenile</button>
               <button data-admin-act="logout" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all">Yönetimden Çık</button>
             </div>
-            <p class="text-[11px] text-slate-500 leading-relaxed pt-1">Yönetim şifresi yalnızca içerik panelini açar; <strong class="text-slate-400">bir kullanıcı hesabı değildir</strong> ve dışarıdan gelenler bu şifreyi bilmeden panele giremez. Kaynak kodunda varsayılanı yoktur, ilk kez yönetim kapısında belirlenir ve yalnızca bu tarayıcıda SHA-256 hash'i olarak saklanır.</p>
-            <div class="pt-3 border-t border-white/10">
-              <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">Bu Tarayıcıdaki Kullanıcılar</h4>
-              <div id="admin-user-list" class="space-y-2 pt-1"></div>
-              <p class="text-[11px] text-slate-500 leading-relaxed pt-1">Dışarıdan gelen herkes kendi hesabını kendi açabilir. Kullanıcı şifrelerini yalnızca hesabın sahibi değiştirebilir; yönetim paneli şifreleri göremez ve değiştiremez.</p>
-            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed pt-1">Yönetim şifresi yalnızca içerik panelini açar; uygulamanın geri kalanından bağımsızdır. Kaynak kodunda varsayılanı yoktur, ilk kez yönetim kapısında belirlenir ve yalnızca bu tarayıcıda SHA-256 hash'i olarak saklanır.</p>
           </div>
         </div>
 
@@ -2163,38 +1867,38 @@ return {
     const EVIDENCE_STORAGE_KEY = 'rezonans_kanunu_evidence_v2';
     const SYNC_TIMER_KEY = 'rezonans_kanunu_sync_timer_v2';
 
-    /* Dilek Sandığı, 72 saat kanıt zinciri ve sayaç GİRİŞ YAPAN KULLANICIYA
-       ÖZELDİR: aynı cihazda birden fazla kişi kendi kayıtlarını görür,
-       kimse başkasının niyetini göremez. Anahtarlar kullanıcı adıyla
-       ayrıştırılır (<temel>__<kullanici>). */
-    function userKey(base) {
-      var name = String(ADMIN.getSessionUser() || '').trim().toLowerCase();
-      return name ? base + '__' + name : base;
-    }
-
-    /* Bu anahtarlar kullanıcı kavramı eklenmeden önce cihaz düzeyinde
-       tutuluyordu. İlk giriş yapan kullanıcıya bir kez taşınır; ikinci
-       kullanıcı aynı kayıtları görmez. */
-    function migrateLegacyData() {
-      var done = false;
-      try { done = localStorage.getItem(ADMIN.MIGRATED_KEY) === '1'; } catch (e) {}
-      if (done) return false;
-      var moved = false;
+    /* Kayıtlar cihaz düzeyindedir: giriş yoktur, her açılışta aynı veriler
+       görülür. Kullanıcı hesabı döneminde anahtarlar kullanıcı adına
+       ayrıştırılmıştı (<temel>__<kullanici>); bu kayıtlar cihaz
+       anahtarlarına bir kez geri alınır, hiçbiri silinmez. */
+    function adoptUserScopedData() {
       var bases = [APP_STORAGE_KEY, EVIDENCE_STORAGE_KEY, SYNC_TIMER_KEY];
+      var restored = 0;
       for (var i = 0; i < bases.length; i++) {
-        var legacy = bases[i];
+        var base = bases[i];
         try {
-          var raw = localStorage.getItem(legacy);
-          if (raw === null) continue;
-          if (localStorage.getItem(userKey(legacy)) === null) {
-            localStorage.setItem(userKey(legacy), raw);
+          var scoped = [];
+          for (var j = 0; j < localStorage.length; j++) {
+            var key = localStorage.key(j);
+            if (key && key.indexOf(base + '__') === 0) scoped.push(key);
           }
-          localStorage.removeItem(legacy);
-          moved = true;
+          if (!scoped.length) continue;
+          /* Cihaz anahtarı zaten doluysa dokunulmaz: yeni kayıtlar
+             kullanıcı dönemi kayıtlarını ezmemeli. */
+          if (localStorage.getItem(base) !== null) continue;
+          scoped.sort();
+          localStorage.setItem(base, localStorage.getItem(scoped[0]));
+          restored++;
         } catch (e) {}
       }
-      try { localStorage.setItem(ADMIN.MIGRATED_KEY, '1'); } catch (e) {}
-      return moved;
+      /* Artık kullanılmayan oturum ve hesap kadrosu kalıntıları silinir;
+         kayıt verileri (<temel>__<kullanici>) yedek için korunur. */
+      try {
+        localStorage.removeItem('rezonans_user_session');
+        localStorage.removeItem('rezonans_users_v1');
+        localStorage.removeItem('rezonans_legacy_migrated_v1');
+      } catch (e) {}
+      return restored;
     }
 
     function escapeHtml(value) {
@@ -3144,7 +2848,7 @@ return {
 
       const endTime = Date.now() + (72 * 60 * 60 * 1000);
       const syncData = { text: text, endTime: endTime };
-      localStorage.setItem(userKey(SYNC_TIMER_KEY), JSON.stringify(syncData));
+      localStorage.setItem(SYNC_TIMER_KEY, JSON.stringify(syncData));
       
       updateSyncUI(syncData);
       ADMIN.trackEvent('sync_started');
@@ -3175,7 +2879,7 @@ return {
 
     function loadActiveSync() {
       try {
-        const saved = localStorage.getItem(userKey(SYNC_TIMER_KEY));
+        const saved = localStorage.getItem(SYNC_TIMER_KEY);
         if (saved) {
           const syncData = JSON.parse(saved);
           updateSyncUI(syncData);
@@ -3188,7 +2892,7 @@ return {
     // Kanıt Kaydetme
     function getStoredEvidences() {
       try {
-        const d = localStorage.getItem(userKey(EVIDENCE_STORAGE_KEY));
+        const d = localStorage.getItem(EVIDENCE_STORAGE_KEY);
         return d ? JSON.parse(d) : [
           "Dün radyoda tam aklımdaki şarkı çaldı.",
           "Sabah otobüste yanıma oturan kişi tam konuştuğumuz kitabı okuyordu."
@@ -3216,7 +2920,7 @@ return {
     function removeEvidence(index) {
       let list = getStoredEvidences();
       list.splice(index, 1);
-      localStorage.setItem(userKey(EVIDENCE_STORAGE_KEY), JSON.stringify(list));
+      localStorage.setItem(EVIDENCE_STORAGE_KEY, JSON.stringify(list));
       renderEvidences();
     }
 
@@ -3229,7 +2933,7 @@ return {
       }
       let list = getStoredEvidences();
       list.unshift(val);
-      localStorage.setItem(userKey(EVIDENCE_STORAGE_KEY), JSON.stringify(list));
+      localStorage.setItem(EVIDENCE_STORAGE_KEY, JSON.stringify(list));
       input.value = '';
       renderEvidences();
       ADMIN.trackEvent('evidence_added');
@@ -3481,7 +3185,7 @@ function copyQuoteText(encodedText) {
     // --- 8. WISH STORAGE & RENDERING ---
     function getStoredWishes() {
       try {
-        const data = localStorage.getItem(userKey(APP_STORAGE_KEY));
+        const data = localStorage.getItem(APP_STORAGE_KEY);
         return data ? JSON.parse(data) : getDefaultWishes();
       } catch (e) {
         return getDefaultWishes();
@@ -3513,14 +3217,14 @@ function copyQuoteText(encodedText) {
       const list = getStoredWishes();
       item.id = Date.now().toString();
       list.unshift(item);
-      localStorage.setItem(userKey(APP_STORAGE_KEY), JSON.stringify(list));
+      localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(list));
       renderWishes();
     }
 
     function deleteWish(id) {
       let list = getStoredWishes();
       list = list.filter(w => w.id !== id);
-      localStorage.setItem(userKey(APP_STORAGE_KEY), JSON.stringify(list));
+      localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(list));
       renderWishes();
       showToast("Kayıt sandıktan çıkarıldı.", "🗑️");
     }
@@ -3562,7 +3266,7 @@ function copyQuoteText(encodedText) {
     }
 
     document.getElementById('clear-all-wishes').addEventListener('click', () => {
-      localStorage.removeItem(userKey(APP_STORAGE_KEY));
+      localStorage.removeItem(APP_STORAGE_KEY);
       renderWishes();
       showToast("Dilek sandığı sıfırlandı.", "🧹");
     });
@@ -3606,7 +3310,7 @@ function copyQuoteText(encodedText) {
       ADMIN.trackEvent('daily_card');
     });
 
-    // Initial setup on load (yalnızca oturum doğrulandıysa çalışır)
+    // Initial setup on load
     function initApp() {
       initTheme();
       changeLanguage(currentLang);
@@ -3633,8 +3337,8 @@ function copyQuoteText(encodedText) {
   <script>
     /* ============================================================
        ADMIN UI
-       Giriş formu, yönetim paneli, koleksiyon editörleri, analitik
-       ve yedekleme. Ana betikten sonra çalışır; onun tanımladığı
+       Yönetim paneli, koleksiyon editörleri, analitik ve yedekleme.
+       Ana betikten sonra çalışır; onun tanımladığı
        render fonksiyonlarını ve dizilerini kullanır.
        ============================================================ */
 
@@ -3757,56 +3461,9 @@ function copyQuoteText(encodedText) {
       el._timer = setTimeout(function () { el.classList.add('hidden'); }, 5000);
     }
 
-    /* ---------------- TEK GİRİŞ SAYFASI: GİRİŞ / KAYIT / ŞİFRE DEĞİŞTİR ----------------
-       Dışarıdan gelen herkes aynı sayfadan kendi hesabını açar; kurulum
-       ekranı ve önceden tanımlı hesap yoktur. Giriş yapmadan içerik
-       görüntülenmez, oturum açınca Dilek Sandığı ve 72 saat kayıtları
-       yalnızca o kullanıcıya açılır. */
-    var loginScreen = document.getElementById('user-login');
-    var loginForm = document.getElementById('user-login-form');
-    var loginError = document.getElementById('user-error');
-    var loginSubmitBtn = document.getElementById('user-submit');
-    var loginModeTitle = document.getElementById('user-mode-title');
-    var loginModeDesc = document.getElementById('user-mode-desc');
-    var loginBackBtn = document.getElementById('user-mode-back');
-    var loginChangeBtn = document.getElementById('user-mode-change');
-    var usernameInput = document.getElementById('user-username');
-    var passwordInput = document.getElementById('user-password');
-    var passwordLabel = document.getElementById('user-password-label');
-    var newPasswordWrap = document.getElementById('user-newpassword-wrap');
-    var newPasswordInput = document.getElementById('user-newpassword');
-    var confirmWrap = document.getElementById('user-password-confirm-wrap');
-    var confirmLabel = document.getElementById('user-password-confirm-label');
-    var confirmInput = document.getElementById('user-password-confirm');
-    var userMode = 'login';
-
-    var USER_MODE_COPY = {
-      login: {
-        title: 'Giriş Yap',
-        desc: 'Kendi kullanıcı adınızla girin. Hesabınız yoksa aynı sayfadan birkaç saniyede açabilirsiniz; Dilek Sandığınız ve 72 saat kayıtlarınız size özeldir.',
-        submit: 'Giriş Yap',
-        password: 'Şifre',
-        confirm: 'Şifreyi Tekrarla',
-        busy: 'Kontrol ediliyor…'
-      },
-      register: {
-        title: 'Kayıt Ol',
-        desc: 'Dışarıdan gelen herkes kendi hesabını açabilir. Hesabınız yalnızca bu tarayıcıda saklanır ve başka kimsenin kayıtlarını göremezsiniz.',
-        submit: 'Hesabımı Oluştur',
-        password: 'Şifre (en az ' + ADMIN.PASSWORD_MIN_LENGTH + ' karakter)',
-        confirm: 'Şifreyi Tekrarla',
-        busy: 'Hesap oluşturuluyor…'
-      },
-      change: {
-        title: 'Şifremi Değiştir',
-        desc: 'Mevcut şifrenizi doğrulayıp yeni şifrenizi belirleyin. Kullanıcı adınız değişmez; Dilek Sandığı ve 72 saat kayıtlarınız olduğu gibi kalır.',
-        submit: 'Şifreyi Güncelle',
-        password: 'Mevcut Şifre',
-        confirm: 'Yeni Şifreyi Tekrarla',
-        busy: 'Güncelleniyor…'
-      }
-    };
-
+    /* Giriş katmanı yoktur: uygulama doğrudan açılır. Bu iki yardımcı,
+       yönetim kapısındaki hata mesajlarının tonunu (hata / başarılı) ve
+       sınıflarını yönetir. */
     function resetErrorStyle(el) {
       if (!el) return;
       el.classList.remove('bg-rose-500/10', 'border-rose-500/30', 'text-rose-300',
@@ -3825,125 +3482,9 @@ function copyQuoteText(encodedText) {
       el.classList.remove('hidden');
     }
 
-    function setUserMode(mode) {
-      if (!USER_MODE_COPY[mode]) mode = 'login';
-      userMode = mode;
-      var copy = USER_MODE_COPY[mode];
-      if (loginScreen) {
-        loginScreen.classList.remove('is-login', 'is-register', 'is-change');
-        loginScreen.classList.add('is-' + mode);
-      }
-      if (loginModeTitle) loginModeTitle.textContent = copy.title;
-      if (loginModeDesc) loginModeDesc.textContent = copy.desc;
-      if (loginSubmitBtn) loginSubmitBtn.textContent = copy.submit;
-      if (passwordLabel) passwordLabel.textContent = copy.password;
-      if (confirmLabel) confirmLabel.textContent = copy.confirm;
-      if (newPasswordInput) newPasswordInput.setAttribute('placeholder', 'En az ' + ADMIN.PASSWORD_MIN_LENGTH + ' karakter');
-      if (loginBackBtn) loginBackBtn.classList.toggle('hidden', mode === 'login');
-      if (loginChangeBtn) loginChangeBtn.classList.toggle('hidden', mode !== 'login');
-      if (loginError) { resetErrorStyle(loginError); loginError.classList.add('hidden'); }
-      if (newPasswordInput) newPasswordInput.value = '';
-      if (confirmInput) confirmInput.value = '';
-      if (usernameInput) setTimeout(function () { usernameInput.focus(); }, 60);
-    }
-
-    document.querySelectorAll('[data-user-mode]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        setUserMode(btn.getAttribute('data-user-mode'));
-      });
-    });
-
-    if (loginForm) {
-      loginForm.addEventListener('submit', function (event) {
-        event.preventDefault();
-        var username = usernameInput ? usernameInput.value.trim() : '';
-        var password = passwordInput ? passwordInput.value : '';
-        var newPassword = newPasswordInput ? newPasswordInput.value : '';
-        var confirm = confirmInput ? confirmInput.value : '';
-        var copy = USER_MODE_COPY[userMode];
-
-        if (!username) {
-          showError(loginError, 'Kullanıcı adı gerekli.');
-          if (usernameInput) usernameInput.focus();
-          return;
-        }
-        if (userMode === 'register') {
-          if (password.length < ADMIN.PASSWORD_MIN_LENGTH) {
-            showError(loginError, 'Şifre en az ' + ADMIN.PASSWORD_MIN_LENGTH + ' karakter olmalı.');
-            if (passwordInput) passwordInput.focus();
-            return;
-          }
-          if (password !== confirm) {
-            showError(loginError, 'Şifreler birbiriyle eşleşmiyor.');
-            if (confirmInput) confirmInput.focus();
-            return;
-          }
-        }
-        if (userMode === 'change') {
-          if (!password) {
-            showError(loginError, 'Mevcut şifre gerekli.');
-            if (passwordInput) passwordInput.focus();
-            return;
-          }
-          if (newPassword.length < ADMIN.PASSWORD_MIN_LENGTH) {
-            showError(loginError, 'Yeni şifre en az ' + ADMIN.PASSWORD_MIN_LENGTH + ' karakter olmalı.');
-            if (newPasswordInput) newPasswordInput.focus();
-            return;
-          }
-          if (newPassword !== confirm) {
-            showError(loginError, 'Yeni şifreler birbiriyle eşleşmiyor.');
-            if (confirmInput) confirmInput.focus();
-            return;
-          }
-        }
-        if (userMode === 'login' && !password) {
-          showError(loginError, 'Şifre gerekli.');
-          if (passwordInput) passwordInput.focus();
-          return;
-        }
-
-        if (loginSubmitBtn) { loginSubmitBtn.disabled = true; loginSubmitBtn.textContent = copy.busy; }
-        if (loginError) { resetErrorStyle(loginError); loginError.classList.add('hidden'); }
-
-        var task;
-        if (userMode === 'register') task = ADMIN.registerUser(username, password);
-        else if (userMode === 'change') task = ADMIN.changePassword(username, password, newPassword);
-        else task = ADMIN.login(username, password);
-
-        task.then(function (ok) {
-          if (userMode === 'change') {
-            if (!ok) throw new Error('Kullanıcı adı veya şifre hatalı.');
-            if (loginForm) loginForm.reset();
-            setUserMode('login');
-            showError(loginError, 'Şifreniz güncellendi. Şimdi yeni şifrenizle giriş yapabilirsiniz.', 'ok');
-            if (usernameInput) usernameInput.focus();
-            return;
-          }
-          if (userMode === 'login' && !ok) {
-            /* Kullanıcı adı ve şifre için aynı mesaj: hangisinin yanlış
-               olduğunu gizlemek hem kullanıcıyı hem de saldırganı yanıltmaz. */
-            showError(loginError, 'Kullanıcı adı veya şifre hatalı. Lütfen tekrar deneyin.');
-            if (passwordInput) { passwordInput.value = ''; passwordInput.focus(); }
-            return;
-          }
-          enterApp();
-        }).catch(function (e) {
-          showError(loginError, (e && e.message) ? e.message : 'İşlem tamamlanamadı.');
-        }).then(function () {
-          if (loginSubmitBtn && userMode !== 'change') {
-            loginSubmitBtn.disabled = false;
-            loginSubmitBtn.textContent = USER_MODE_COPY[userMode].submit;
-          } else if (loginSubmitBtn) {
-            loginSubmitBtn.disabled = false;
-          }
-        });
-      });
-    }
-
     /* ---------------- YÖNETİM KAPI ----------------
-       İçerik panelini açan gizli kapı. Bir kullanıcı hesabı DEĞİLDİR:
-       dışarıdan gelenler bu şifreyi bilmeden panele giremez. Kaynak
-       kodunda varsayılan şifre yoktur; ilk açılışta belirlenir. */
+       İçerik panelini açan gizli kapı. Kaynak kodunda varsayılan şifre
+       yoktur; ilk açılışta burada belirlenir. */
     var adminGateEl = document.getElementById('admin-gate');
     var adminGateForm = document.getElementById('admin-gate-form');
     var adminGateError = document.getElementById('admin-gate-error');
@@ -3967,14 +3508,14 @@ function copyQuoteText(encodedText) {
       },
       verify: {
         title: 'Yönetim Şifresi',
-        desc: 'İçerikleri düzenlemek için yönetim şifresini girin. Bu kapı kullanıcı hesaplarından bağımsızdır.',
+        desc: 'İçerikleri düzenlemek için yönetim şifresini girin.',
         submit: 'Kilidi Aç',
         password: 'Yönetim Şifresi',
         confirm: 'Şifreyi Tekrarla'
       },
       change: {
         title: 'Yönetim Şifresini Değiştir',
-        desc: 'Mevcut yönetim şifrenizi doğrulayıp yenisini belirleyin. Kullanıcı hesapları etkilenmez.',
+        desc: 'Mevcut yönetim şifrenizi doğrulayıp yenisini belirleyin.',
         submit: 'Şifreyi Güncelle',
         password: 'Mevcut Yönetim Şifresi',
         confirm: 'Yeni Şifreyi Tekrarla'
@@ -4156,14 +3697,6 @@ function copyQuoteText(encodedText) {
         if (adminPanel && !adminPanel.classList.contains('hidden')) { closeAdminPanel(); return; }
         if (ADMIN.isAdminAuthed()) openAdminPanel();
         else openAdminGate();
-      });
-    }
-
-    var userLogoutBtn = document.getElementById('user-logout-btn');
-    if (userLogoutBtn) {
-      userLogoutBtn.addEventListener('click', function () {
-        ADMIN.logout();
-        showAppScreen('login');
       });
     }
 
@@ -4452,16 +3985,15 @@ function copyQuoteText(encodedText) {
         .sort(function (a, b) { return b.count - a.count; });
 
       var wishes = 0;
-      try { wishes = (JSON.parse(localStorage.getItem(userKey(APP_STORAGE_KEY)) || 'null') || getDefaultWishes()).length; } catch (e) { wishes = 0; }
+      try { wishes = (JSON.parse(localStorage.getItem(APP_STORAGE_KEY) || 'null') || getDefaultWishes()).length; } catch (e) { wishes = 0; }
 
       var evidences = getStoredEvidences().length;
       var clearingDone = Object.keys(getClearingState()).filter(function (k) { return getClearingState()[k]; }).length;
       var overrides = ADMIN.overriddenKeys().length;
 
       host.innerHTML =
-        '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">' +
+        '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">' +
           statCard('Uygulama Açılışı', data.visits, 'indigo') +
-          statCard('Giriş Sayısı', data.logins || 0, 'emerald') +
           statCard('İlk Kullanım', formatDate(data.firstSeen), 'amber') +
           statCard('Son Kullanım', formatDate(data.lastSeen), 'cyan') +
         '</div>' +
@@ -4474,12 +4006,11 @@ function copyQuoteText(encodedText) {
         '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">' +
           barList('En Çok Görüntülenen Bölümler', sectionEntries, null, 'Henüz bölüm görüntülenmedi.') +
           barList('Özellik Kullanımı', eventEntries, ADMIN_EVENT_LABELS, 'Henüz etkileşim kaydedilmedi.') +
-        '</div>' +
-        (data.lastLogin ? '<p class="text-[11px] text-slate-500 text-center">Son giriş: ' + esc(formatDate(data.lastLogin)) + '</p>' : '');
+        '</div>';
     }
 
     /* ---------------- YÖNETİM ŞİFRESİ ----------------
-       Kullanıcı hesabı DEĞİLDİR: yalnızca içerik panelini açar. */
+       Yalnızca içerik panelini açar. */
     /* Kurtarma kodu yalnizca bir kez gosterilir: duz metni buraya yazilir
        ve DOM'dan tutulur, localStorage'a degil. */
     function showAdminRecovery(code) {
@@ -4503,7 +4034,7 @@ function copyQuoteText(encodedText) {
       var el = document.getElementById('admin-password-state');
       if (el) {
         el.textContent = ADMIN.hasAdminPassword()
-          ? 'Yönetim şifresi tanımlı. Kullanıcı hesaplarından tamamen bağımsız.'
+          ? 'Yönetim şifresi tanımlı.'
           : 'Yönetim şifresi henüz tanımlı değil.';
       }
       var rec = document.getElementById('admin-recovery-state');
@@ -4514,33 +4045,6 @@ function copyQuoteText(encodedText) {
             ? 'Kurtarma kodu tanımlı. Şifrenizi unutursanız yönetim kapısındaki "Şifremi Unuttum" ile yeni şifre belirleyebilirsiniz.'
             : 'Bu tarayıcıda kurtarma kodu yok. Şifrenizi unutursanız yönetim paneline erişim geri alınamaz.');
       }
-      var list = document.getElementById('admin-user-list');
-      if (!list) return;
-      var users = ADMIN.listUsers();
-      list.innerHTML = '';
-      if (!users.length) {
-        var empty = document.createElement('p');
-        empty.className = 'text-xs text-slate-500';
-        empty.textContent = 'Bu tarayıcıda henüz kullanıcı hesabı yok.';
-        list.appendChild(empty);
-        return;
-      }
-      var head = document.createElement('p');
-      head.className = 'text-xs text-slate-400';
-      head.textContent = users.length + ' kullanıcı hesabı kayıtlı.';
-      list.appendChild(head);
-      users.forEach(function (u) {
-        var row = document.createElement('div');
-        row.className = 'flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-slate-800/60 border border-white/10';
-        var name = document.createElement('span');
-        name.className = 'text-xs font-bold text-white font-mono break-all';
-        name.textContent = u.name;
-        var when = document.createElement('span');
-        when.className = 'text-[10px] text-slate-500 shrink-0';
-        when.textContent = u.createdAt ? formatDate(u.createdAt) : '';
-        row.appendChild(name); row.appendChild(when);
-        list.appendChild(row);
-      });
     }
 
     /* ---------------- YEDEKLEME ---------------- */
@@ -4574,7 +4078,7 @@ function copyQuoteText(encodedText) {
         renderCollectionList();
         renderEditor();
         updateAdminPasswordState();
-        adminToast(result.count + ' koleksiyon içe aktarıldı ve uygulama güncellendi. Kullanıcı hesapları ve yönetim şifresi yedeğe dahil edilmediği için bu cihazdaki giriş bilgileri geçerli.');
+        adminToast(result.count + ' koleksiyon içe aktarıldı ve uygulama güncellendi. Yönetim şifresi ve kurtarma kodu yedeğe dahil edilmediği için bu cihazdaki şifreniz geçerli.');
       };
       reader.onerror = function () { adminToast('Dosya okunamadı.', true); };
       reader.readAsText(file);
@@ -4679,8 +4183,8 @@ function copyQuoteText(encodedText) {
 
         if (act === 'close-panel') { closeAdminPanel(); return; }
         if (act === 'logout') {
-          /* Yönetimden çıkış KULLANICI oturumunu kapatmaz; sadece içerik
-             panelinin kilidi sıfırlanır. Kullanıcı çıkışı başlıktadır. */
+          /* Yönetimden çıkış sadece içerik panelinin kilidini sıfırlar;
+             uygulama açık kalır. */
           ADMIN.logoutAdmin();
           closeAdminPanel();
           openAdminGate();
@@ -4722,7 +4226,7 @@ function copyQuoteText(encodedText) {
         if (act === 'generate-admin-pw') {
           if (!window.confirm('Yeni bir yönetim şifresi üretilsin mi?\n\n' +
               'Yönetimden çıkış yapılacak ve yeni şifre bir kez gösterilecek; ' +
-              'dikkatle not edin. Kullanıcı hesapları etkilenmez.')) return;
+              'dikkatle not edin.')) return;
           ADMIN.logoutAdmin();
           var generated = ADMIN.generatePassword();
           adminToast('Yeni yönetim şifresi: ' + generated);
@@ -4868,47 +4372,12 @@ function copyQuoteText(encodedText) {
       changeLanguage(currentLang, true);
     }
 
-    /* Kilit kararı burada verilir: oturum varsa uygulama, yoksa tek
-       giriş sayfası. "app-locked" ve "admin-gate-open" aynı anda
-       aktif olmaz; yönetim kapısı yalnızca oturum açıldıktan sonra
-       anlamlıdır. */
-    function showAppScreen(which) {
-      document.body.classList.remove('app-locked');
-      if (which === 'app') { startApp(); return; }
-      closeAdminGate();
-      closeAdminPanel();
-      document.body.classList.add('app-locked');
-      setUserMode('login');
-    }
-
-    function renderUserChip() {
-      var chip = document.getElementById('user-chip');
-      var chipName = document.getElementById('user-chip-name');
-      var who = ADMIN.getSessionUser();
-      if (chip) chip.classList.toggle('hidden', !who);
-      if (chipName) { chipName.textContent = who; chipName.title = who ? who + ' · oturum açık' : ''; }
-    }
-
+    /* Uygulama kilitsiz açılır: giriş katmanı yoktur. Kullanıcı döneminde
+       kullanıcı adına ayrılmış kayıtlar cihaz anahtarlarına bir kez geri
+       alınır, sonra her açılışta aynı veriler görülür. */
     function startApp() {
-      /* Kullanıcı kavramı yokken tutulan kayıtlar ilk giriş yapan
-         kullanıcıya bir kez taşınır. */
-      migrateLegacyData();
-      renderUserChip();
+      adoptUserScopedData();
       initApp();
-    }
-
-    function enterApp() {
-      document.body.classList.remove('app-locked');
-      closeAdminGate();
-      if (loginForm) loginForm.reset();
-      if (loginError) { resetErrorStyle(loginError); loginError.classList.add('hidden'); }
-      setUserMode('login');
-      if (passwordInput) passwordInput.value = '';
-      startApp();
-    }
-
-    function appGate() {
-      return ADMIN.isAuthed() ? 'app' : 'login';
     }
 
     /* ---------------- BAŞLAT ---------------- */
@@ -4917,8 +4386,7 @@ function copyQuoteText(encodedText) {
       wireContentDelegation();
       adminCurrentKey = ADMIN_COLLECTIONS[0].key;
       switchAdminTab('content');
-      setUserMode('login');
-      showAppScreen(appGate());
+      startApp();
     });
   </script>
 
