@@ -151,7 +151,7 @@ alanlar yok sayılır.
 | --- | --- |
 | Yapı | Saf HTML5 + CSS + JavaScript (ES5 tarzı, framework yok) |
 | Stil | Tailwind CSS 3 (`cdn.tailwindcss.com`, `tailwind.config` ile özel palet) |
-| Fontlar | Plus Jakarta Sans (sans), Playfair Display (serif) — Google Fonts |
+| Fontlar | Plus Jakarta Sans (sans), Fraunces (serif, `opsz` optik boyut) — Google Fonts |
 | Tema | Özel `cosmic` / `aura` renk paleti, `darkMode: 'class'` |
 | Durum | `localStorage` (sunucu yok) |
 | Bağımlılık | `package.json` yok, `node_modules` yok |
@@ -177,7 +177,7 @@ rezon/
 | **Köprü Cümle Laboratuvarı** | Konu + süreç kalıbı + esneklik eki birleşimiyle dirençsiz olumlama cümlesi üretimi, kopyalama ve sandığa ekleme |
 | **Dil Filtresi & Tuzak Dedektörü** | Cümledeki negatif kök kelimeleri (`hasta`, `borç`, `yalnız`, `istemiyorum`…) ve olumsuzluk eklerini tespit edip "saf rezonans" karşılığını önerir; hazır sözlük akordeonu |
 | **Fiziksel Yer Açma** (*Raum Schaffen*) | 4 kategoride (aşk, bolluk, kariyer, ev) 20 eylemlik kontrol listesi, ilerleme çubuğu, kalıcı işaretleme |
-| **Su Rezonansı Laboratuvarı** | Dr. Masaru Emoto esinli 12 frekans seçeneği + özel niyet alanı, canlı su bardağı animasyonu ve 15 saniyelik koherans yükleme ritüeli |
+| **Su Rezonansı Laboratuvarı** | Dr. Masaru Emoto esinli 12 frekans seçeneği + özel niyet alanı, canlı su bardağı animasyonu ve 60 saniyelik koherans yükleme ritüeli |
 | **Alfa / Teta Uyku Eşiği** | Gece öncesi ve sabah ilk 5 dakika modları, 5 rehberli imgeleme senaryosu, adım adım ilerleyen metin oynatıcı |
 | **Restoran Siparişi** | Niyeti "sipariş" olarak gönderme ve kontrol arzusunu bırakma simülasyonu |
 | **72 Saat Kuralı** | 15 hazır dirençsiz işaret kütüphanesi, rastgele işaret üretici, kalıcı geri sayım ve kanıt zinciri listesi |
@@ -188,7 +188,8 @@ rezon/
 | **Günün Frekansı** | Rastgele rezonans kartı modalı |
 | **Alıntı Spotlights** | Rastgele alıntı döngüsü |
 | **Dilek Sandığı** | Tüm niyet, köprü cümle ve teslimiyet kayıtlarının kart ızgarası; silme / toplu temizleme |
-| **Tema & Dil** | Karanlık / aydınlık mod ve TR / EN dil geçişi, tercihler kalıcı |
+| **Tema & Dil** | Karanlık / aydınlık mod ve TR / EN dil geçişi, tercihler kalıcı. Dil geçişi arayüzü **ve sayfa metnini** (hero, bölüm başlıkları, lead paragraflar) de çevirir |
+| **Görsel katman** | Katmanlı cam kart yüzeyleri, gradient hero başlığı, bölümleri ayıran dalga ayraçları, hero arkasında animasyonlu rezonans halkaları, dört ayak ikonları, koyu/açık temaya uyumlu renk kodları ve okuma ilerleme çubuğu (`animation-timeline`, destekleyen tarayıcılarda) |
 | **Girişsiz kullanım** | Giriş ekranı, hesap, oturum ve Çıkış düğmesi **yoktur**; dosya açılır açılmaz uygulama görünür |
 | **Cihaz düzeyi kayıtlar** | Dilek Sandığı, 72 saat kanıtı ve sayaç cihaz düzeyindeki sabit anahtarlarda tutulur; kullanıcıya göre ayrıştırma yapılmaz |
 | **Yönetim Kapısı** | Yalnızca içerik panelini açan gizli şifre. Kaynak kodunda varsayılanı yoktur, ilk kullanımda belirlenir, yalnızca hash olarak saklanır |
@@ -301,13 +302,15 @@ Bu kaynak diziye (`DEFAULT_WATER_FREQUENCIES`) eklenir. Yalnızca tarayıcıda d
 - **Panelden girilen metin çalıştırılamaz.** Tüm içerik render'ları `escapeHtml()` kullanır ve hiçbir yerde `innerHTML` içine gömülü `onclick` yoktur; etkileşimler `data-*` öznitelikleriyle olay temsilciliğine bağlanır. Yine de **JSON yedeği yalnızca kendi ürettiğiniz dosyalardan yükleyin** — başka birinin dosyası güvenilmeyen girdidir.
 - **Yönetim kapısı Tailwind'e bağlı değildir.** `#admin-gate`, `body.admin-gate-open #admin-gate` ve `#admin-panel` kuralları dosyanın kendi `<style>` bloğundadır; CDN yüklenemese bile yönetim kapısı doğru çalışır. Uygulama kabuğu kilitlenmez, `body.app-locked` kuralı artık yoktur.
 - **Kayıtlar cihaz düzeyindedir.** Aynı tarayıcıda her açılışta aynı Dilek Sandığı ve 72 saat kayıtları görülür; ayrı hesap veya oturum kavramı yoktur.
-- **Üst çubuk dar ekranda sarılır.** 390px altındaki genişliklerde başlık bloğu ile düğme grubu alt alta geçer, "Günün Frekansı" etiketi gizlenir; yatay sayfa kaydırması oluşmaz.
+- **Üst çubuk tek satırdır (64px).** Genişlik ne olursa olsun sarılmaz: gezinme bağlantıları en sağa geçer ve yalnızca `xl` üzerinde görünür, "Günün Frekansı" düğmesi etiketsiz ikona düşer, 400px altında wordmark gizlenir. Yatay sayfa kaydırması oluşmaz.
+- **Dil geçişi arayüzle birlikte sayfa metnini de çevirir.** `applySectionTranslations()` hero başlığı, butonları, bölüm üst etiketlerini, büyük başlıkları ve lead paragraflarını TR/EN arasında değiştirir; orijinal Türkçe metin `WeakMap` içinde saklanıp geri yüklenir. **Kapsam dışı:** bölüm başlıklarının altındaki ikinci açıklama paragrafı (ör. "Evrensel çekimin arkasındaki…") yalnızca Türkçe kalır. `document.documentElement.lang` da güncellenir.
+- **Tuzak kelime tespiti Türkçe büyük/küçük harf kurallarına uyar** (`toLocaleLowerCase('tr-TR')`); "yokluk" biçimindeki kökler birbirinin ön ekiyse (örn. `hasta` / `hastalık`) yalnızca uzun olan sayılır.
 
 ---
 
 ## Tarayıcı Desteği
 
-Uygulama `localStorage`, `backdrop-filter`, `IntersectionObserver` ve `crypto.subtle` kullandığı için çok eski tarayıcılarda görsel bozulma veya eksik özellik beklenir.
+Uygulama `localStorage`, `backdrop-filter`, `IntersectionObserver`, `mask-image` ve `crypto.subtle` kullandığı için çok eski tarayıcılarda görsel bozulma veya eksik özellik beklenir. `animation-timeline: scroll()` yalnızca destekleyen tarayıcılarda okuma ilerleme çubuğunu gösterir; `@supports` bloğu olmadığı için desteklenmeyenlerde çubuk hiç çizilmez. `prefers-reduced-motion: reduce` açıksa animasyonlar durur ve rezonans halkaları gizlenir.
 
 Şifre hash'i iki yolla hesaplanır: `crypto.subtle` (güvenli bağlam) ve kullanılabilir olduğunda saf JS fallback'i. İkisi de UTF-8 baytlar üzerinde çalışır ve aynı sonucu üretir; `file://` gibi `crypto.subtle`'ın kapalı olduğu bağlamlarda da Türkçe karakterli şifreler sorunsuz çalışır.
 
@@ -321,7 +324,8 @@ Yönetim şifresi doğrulamasında hash yine her denemede hesaplanır; böylece 
 | Kaynak sızıntısı | `index.html` ve `README.md` üzerinde tarama: giriş/kayıt/oturum/kullanıcı kadrosu işlevi, `userKey`, `accountCount`, `lastLogin`, giriş sayacı ve kullanıcı listesi işareti **0 eşleşme** (yalnızca `registerVisit` kalır, ziyaret sayacıdır) |
 | Uçtan uca tarayıcı | Chrome headless (CDP) ile **27 test, 0 hata**: giriş markup'ının ve kilit sınıfının kalkması, uygulama kabuğunun görünürlüğü, bölüm render'ı, kapının başlangıçta gizli olması, **eski kullanıcı ekli kaydın cihaz anahtarına alınması ve sandıkta görünmesi, oturum ve kadro anahtarlarının silinmesi, kullanıcı ekli kaydın korunması, mevcut cihaz anahtarının ezilmemesi**, yönetim kapısının ilk kullanımda şifre belirlemesi, kurtarma kodunun bir kez gösterilip yalnızca hash olarak saklanması, yedekte kod sızmaması, yönetimden çıkışın uygulamayı açık bırakması ve kapıyı doğrulama moduna döndürmesi, yanlış şifrenin reddi, analitik görünümü ve giriş sayacının olmaması, Escape ile panel kapanması, 360px'te yatay kaydırma olmaması |
 | Özellik dönüşü | Chrome headless (CDP) ile **13 test, 0 hata**: tema ve dil geçişi + kalıcılık, günün frekansı modalı, niyet ekleme/silme/yeniden yükleme sonrası kalıcılık, yedek özetinin kimlik bilgisi içermemesi, içerik override'ı ve sıfırlama, yakalanmamış istisna yok |
-| Duyarlılık | Chrome headless ile **7 viewport, 0 hata** (1920×1080, 1366×640, 1280×720, 1024×600, 820×1180, 390×844, 360×640): uygulama kabuğu görünür, yönetim kapısı kartı ekrana sığıyor, yatay sayfa kaydırması oluşmuyor |
+| Duyarlılık | Chrome headless ile **7 viewport, 0 hata** (1920×1080, 1366×640, 1280×720, 1024×600, 820×1180, 390×844, 360×640): uygulama kabuğu görünür, üst çubuk 64px tek satırda kalır, yönetim kapısı kartı ekrana sığıyor, yatay sayfa kaydırması oluşmuyor |
+| Görsel ve çeviri katmanı | Chrome headless (CDP) ile **29 test, 0 hata**: Fraunces bağlantısı ve serif uygulaması, hero gradient dolgusu (`background-clip: text`), animasyonlu rezonans halkaları, bölüm etiketinin kutu yerine çizgi olması, okuma ilerleme çubuğu (`animation-timeline`), dört ayak kartlarında SVG ikon, üst çubuk yüksekliği, gezinmenin `xl` üzerinde görünüp altında gizlenmesi, "Günün Frekansı" etiketinin gizlenmesi, **EN/TR arasında hero ve bölüm başlıklarının çevrilip geri dönmesi ve TR metinlerinin kaybolmaması**, `html lang` güncellemesi, sandık temizlemenin varsayılan kayıtları geri getirmemesi, tuzak kökü tekilleştirme (`hasta`/`hastalık`), 60 sn su ritüeli, 72 saat sayacının anlık başlaması, nefes sayacı, kâğıt yakma çift tıklama koruması, yakalanmamış istisna yok |
 | Statik denetim | 4 satır içi `<script>` bloğunun tamamı `node --check` ile ayrıştırılıyor; `getElementById` hedeflerinin tamamı markup'ta mevcut; kullanılmayan `data-*` kancası yok |
 | Yayınlanan sürüm | Bu değişiklikten sonra GitHub Pages sürümü yeniden test edilmedi. Yayın öncesi canlı adreste aynı CDP kontrollerinin çalıştırılması önerilir. |
 
