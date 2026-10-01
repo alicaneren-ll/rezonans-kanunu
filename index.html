@@ -6,7 +6,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;family=Playfair+Display:ital,wght@0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&amp;display=swap" rel="stylesheet">
   
   <script>
     tailwind.config = {
@@ -15,7 +15,7 @@
         extend: {
           fontFamily: {
             sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-            serif: ['"Playfair Display"', 'serif'],
+            serif: ['"Fraunces"', 'Georgia', 'serif'],
           },
           colors: {
             cosmic: {
@@ -205,6 +205,121 @@
     .admin-item > summary::-webkit-details-marker { display: none; }
     .admin-chevron { transition: transform 0.2s ease; }
     .admin-item[open] .admin-chevron { transform: rotate(90deg); }
+    /* ===== GÖRSEL İYİLEŞTİRME KATMANI ===== */
+    body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-optical-sizing: auto; line-height: 1.65; }
+    body:not(.light-mode) {
+      background-image:
+        radial-gradient(1200px 620px at 50% -8%, rgba(99,102,241,.17), transparent 62%),
+        radial-gradient(760px 520px at 100% 42%, rgba(251,191,36,.05), transparent 62%);
+      background-attachment: fixed;
+    }
+    .app-shell > .fixed.inset-0 > div { opacity: .55; }
+    h1, h2, h3, h4 { text-wrap: balance; letter-spacing: -.012em; }
+    p, li { text-wrap: pretty; }
+    main > section h2.font-serif.text-3xl { font-size: clamp(1.85rem, 1.35rem + 1.7vw, 2.6rem); line-height: 1.15; }
+
+    /* Cam kartlar: daha derin yüzey, ince iç ışık, katmanlı gölge */
+    .glass-card {
+      background: linear-gradient(180deg, rgba(26,26,66,.62), rgba(12,12,36,.74));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 22px 44px -28px rgba(0,0,0,.75);
+    }
+    .glass-card-hover { transition: transform .35s cubic-bezier(.2,.7,.2,1), border-color .35s, box-shadow .35s; }
+    .glass-card-hover:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 26px 52px -26px rgba(99,102,241,.5); }
+
+    /* Dört ayak: renk kodu kartın üst kenarında taşınır */
+    #ozet .grid > .glass-card::before {
+      content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+      background: var(--accent, #818cf8); opacity: .75;
+    }
+    #ozet .grid > :nth-child(1) { --accent: #c084fc; }
+    #ozet .grid > :nth-child(2) { --accent: #fb7185; }
+    #ozet .grid > :nth-child(3) { --accent: #fbbf24; }
+    #ozet .grid > :nth-child(4) { --accent: #34d399; }
+
+    /* Bölüm başlığı etiketi: kutu yerine iki yanında ince çizgi */
+    main > section .text-center > span.rounded-full:first-child {
+      background: none !important; border: 0 !important; padding: 0 !important;
+      display: inline-flex; align-items: center; gap: .7rem;
+      font-size: .8125rem; font-weight: 600; letter-spacing: .02em;
+    }
+    main > section .text-center > span.rounded-full:first-child::before,
+    main > section .text-center > span.rounded-full:first-child::after {
+      content: ""; width: 1.75rem; height: 1px; background: currentColor; opacity: .45;
+    }
+
+    /* Bölümler arası dalga ayracı */
+    main > section { position: relative; }
+    main > section:not(:last-child)::after {
+      content: ""; position: absolute; bottom: -3.5rem; left: 50%; transform: translateX(-50%);
+      width: min(240px, 50%); height: 14px; opacity: .55; pointer-events: none;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='14' viewBox='0 0 60 14'%3E%3Cpath d='M0 7c7.5-8 7.5-8 15 0s7.5 8 15 0 7.5-8 15 0 7.5 8 15 0' fill='none' stroke='%23a5b4fc' stroke-width='1.2'/%3E%3C/svg%3E") repeat-x center / 60px 14px;
+    }
+
+    /* Hero: rezonans halkaları */
+    main > section:first-child { overflow-x: clip; isolation: isolate; }
+    .resonance-rings {
+      position: absolute; left: 50%; top: 46%; width: min(120vw, 980px); aspect-ratio: 1;
+      transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
+      -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 68%);
+      mask-image: radial-gradient(circle, #000 0%, transparent 68%);
+    }
+    .resonance-rings i {
+      position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(165,180,252,.4);
+      opacity: 0; transform: scale(.12); animation: ripple 12s cubic-bezier(.2,.6,.3,1) infinite;
+    }
+    .resonance-rings i:nth-child(2) { animation-delay: 3s; }
+    .resonance-rings i:nth-child(3) { animation-delay: 6s; }
+    .resonance-rings i:nth-child(4) { animation-delay: 9s; }
+    @keyframes ripple { 0% { transform: scale(.12); opacity: 0; } 12% { opacity: .9; } 100% { transform: scale(1); opacity: 0; } }
+    h1.hero-title {
+      background: linear-gradient(180deg, #ffffff 35%, #fde68a 145%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      font-weight: 600; letter-spacing: -.02em;
+    }
+    main > section:first-child > div.inline-flex {
+      border-radius: 1rem; max-width: 36rem; text-align: left; font-style: italic;
+      font-size: .9rem; line-height: 1.5; padding: .6rem 1.1rem;
+    }
+
+    /* Üst çubuk + okuma ilerlemesi */
+    header.sticky { background: rgba(9,9,28,.74); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); }
+    @supports (animation-timeline: scroll()) {
+      header.sticky::after {
+        content: ""; position: absolute; left: 0; bottom: -1px; width: 100%; height: 2px;
+        background: linear-gradient(90deg, #818cf8, #fbbf24); transform-origin: 0 50%;
+        animation: readprog linear both; animation-timeline: scroll(root block);
+      }
+      @keyframes readprog { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    }
+
+    /* Form ve düğmeler */
+    input, textarea, select { transition: border-color .2s, box-shadow .2s, background-color .2s; }
+    input:focus-visible, textarea:focus-visible, select:focus-visible { box-shadow: 0 0 0 4px rgba(129,140,248,.22); }
+    a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid #fbbf24; outline-offset: 3px; border-radius: .5rem;
+    }
+    button:not(:disabled):active { transform: translateY(1px); }
+
+    /* Okunabilirlik: küçük ve soluk metinler */
+    body .text-\[11px\] { font-size: .75rem; }
+    body:not(.light-mode) .text-slate-500 { color: #94a3b8; }
+
+    /* Açık tema uyumu */
+    body.light-mode header.sticky { background: rgba(255,255,255,.82); }
+    body.light-mode h1.hero-title { background: linear-gradient(180deg, #0f172a 30%, #4338ca 150%); -webkit-background-clip: text; background-clip: text; }
+    body.light-mode .gradient-text { background: linear-gradient(135deg, #312e81 0%, #7e22ce 55%, #b45309 100%); -webkit-background-clip: text; background-clip: text; }
+    body.light-mode .resonance-rings i { border-color: rgba(99,102,241,.4); }
+    body.light-mode main > section:not(:last-child)::after { opacity: .8; filter: saturate(1.4) brightness(.7); }
+
+    /* Üst çubuk: kompakt araçlar başlığın yanında */
+    .hdr-tools .p-2 { padding: .35rem; }
+    .hdr-tools svg.w-5 { width: 1rem; height: 1rem; }
+    .hdr-tools #quick-card-btn { padding: .4rem .6rem; }
+    .hdr-tools [id^="lang-btn"] { padding: .2rem .5rem; font-size: 11px; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+      .resonance-rings { display: none; }
+    }
   </style>
 </head>
 <body class="bg-cosmic-950 text-slate-100 font-sans antialiased min-h-screen selection:bg-purple-500 selection:text-white relative overflow-x-hidden">
@@ -686,32 +801,20 @@ return {
   </div>
 
   <header class="sticky top-0 z-50 glass-card border-b border-white/10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-20 py-3 sm:h-20 sm:py-0 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-2 sm:gap-4">
       <div class="flex items-center gap-3 min-w-0">
         <div class="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-amber-300 flex items-center justify-center shadow-lg shadow-indigo-500/20">
           <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
           </svg>
         </div>
-        <div class="min-w-0">
+        <div class="min-w-0 max-[399px]:hidden">
           <span class="font-serif text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-white block truncate" data-i18n="nav_title">Rezonans Kanunu</span>
           <span class="hidden sm:block text-xs text-indigo-300 font-medium tracking-wider uppercase truncate" data-i18n="nav_subtitle">Pierre Franckh Uygulama Rehberi</span>
         </div>
       </div>
 
-      <nav class="hidden xl:flex items-center gap-1 text-xs font-medium text-slate-300">
-        <a href="#ozet" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_principles">İlkeler</a>
-        <a href="#inanc-atolyesi" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_belief">Kök İnanç</a>
-        <a href="#kopru-cumleler" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_bridge">Köprü Cümle</a>
-        <a href="#dil-filtresi" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_detector">Dil Dedektörü</a>
-        <a href="#yer-acma" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_space">Fiziksel Alan</a>
-        <a href="#su-rezonansi" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_water">Su Rezonansı</a>
-        <a href="#alfa-uyku" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_alpha">Alfa Eşiği</a>
-        <a href="#kanitlar-zinciri" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_72h">72 Saat</a>
-        <a href="#dilek-sandigi" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_chest">Sandık</a>
-      </nav>
-
-      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+      <div class="hdr-tools flex items-center gap-1.5 sm:gap-2 shrink-0">
         <!-- TR / EN Language Switcher -->
         <div class="flex items-center p-1 rounded-xl bg-slate-900/80 border border-white/10 text-xs font-semibold">
           <button id="lang-btn-tr" onclick="changeLanguage('tr')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white transition-all">TR</button>
@@ -730,24 +833,37 @@ return {
           </svg>
         </button>
 
-        <button id="quick-card-btn" class="text-xs sm:text-sm px-3 sm:px-3.5 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 transition-all flex items-center gap-1.5 whitespace-nowrap">
+        <button id="quick-card-btn" title="Günün Frekansı" class="text-xs sm:text-sm px-3 sm:px-3.5 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 transition-all flex items-center gap-1.5 whitespace-nowrap">
           <span>✨</span>
-          <span class="hidden sm:inline" data-i18n="btn_daily_freq">Günün Frekansı</span>
+          <span class="hidden sm:inline xl:hidden" data-i18n="btn_daily_freq">Günün Frekansı</span>
         </button>
       </div>
+      <nav class="ml-auto hidden xl:flex items-center gap-1 text-xs font-medium text-slate-300">
+        <a href="#ozet" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_principles">İlkeler</a>
+        <a href="#inanc-atolyesi" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_belief">Kök İnanç</a>
+        <a href="#kopru-cumleler" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_bridge">Köprü Cümle</a>
+        <a href="#dil-filtresi" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_detector">Dil Dedektörü</a>
+        <a href="#yer-acma" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_space">Fiziksel Alan</a>
+        <a href="#su-rezonansi" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_water">Su Rezonansı</a>
+        <a href="#alfa-uyku" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_alpha">Alfa Eşiği</a>
+        <a href="#kanitlar-zinciri" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_72h">72 Saat</a>
+        <a href="#dilek-sandigi" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors" data-i18n="nav_chest">Sandık</a>
+      </nav>
+
     </div>
   </header>
 
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-24">
 
     <section class="text-center pt-8 pb-4 relative">
+      <div class="resonance-rings" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 border border-indigo-400/20 text-indigo-300 mb-6">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
         "Evren söylediğiniz sözlere değil, inandığınız ve kalben hissettiğiniz titreşime yanıt verir."
       </div>
-      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight font-serif text-white max-w-4xl mx-auto leading-tight sm:leading-none">
+      <h1 class="hero-title text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight font-serif text-white max-w-4xl mx-auto leading-tight sm:leading-none">
         İç Dünyanın Titreşimi, <br>
-        <span class="gradient-text">Dış Dünyanın Kaderidir</span>
+        <span>Dış Dünyanın Kaderidir</span>
       </h1>
       <p class="mt-6 text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed font-light">
         Pierre Franckh’ın resmi blog yazıları, seminer notları ve kitap rehberlerinden derlenen somut egzersizlerle frekansını dönüştür; içsel sansürü kır ve evrenle tam rezonansa geç.
@@ -779,9 +895,7 @@ return {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- Card 1 -->
         <div class="glass-card glass-card-hover rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
-          <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mb-5 text-xl font-bold">
-            01
-          </div>
+          <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mb-5 text-xl font-bold"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12c2.5-6 5-6 7.5 0s5 6 7.5 0c1-2.2 2.2-3 5-3"/></svg></div>
           <div>
             <h3 class="text-lg font-bold text-white mb-2">Elektromanyetik Alan</h3>
             <p class="text-sm text-slate-300 leading-relaxed">
@@ -795,9 +909,7 @@ return {
 
         <!-- Card 2 -->
         <div class="glass-card glass-card-hover rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
-          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-5 text-xl font-bold">
-            02
-          </div>
+          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-5 text-xl font-bold"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/></svg></div>
           <div>
             <h3 class="text-lg font-bold text-white mb-2">Kalbin 5000 Kat Gücü</h3>
             <p class="text-sm text-slate-300 leading-relaxed">
@@ -811,9 +923,7 @@ return {
 
         <!-- Card 3 -->
         <div class="glass-card glass-card-hover rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
-          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-5 text-xl font-bold">
-            03
-          </div>
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-5 text-xl font-bold"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"/></svg></div>
           <div>
             <h3 class="text-lg font-bold text-white mb-2">Bilinçaltı İnanç Kodları</h3>
             <p class="text-sm text-slate-300 leading-relaxed">
@@ -827,9 +937,7 @@ return {
 
         <!-- Card 4 -->
         <div class="glass-card glass-card-hover rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
-          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5 text-xl font-bold">
-            04
-          </div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5 text-xl font-bold"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></div>
           <div>
             <h3 class="text-lg font-bold text-white mb-2">Bırakabilme Sanatı (Loslassen)</h3>
             <p class="text-sm text-slate-300 leading-relaxed">
@@ -1958,6 +2066,43 @@ return {
 
     let currentLang = localStorage.getItem('rezonans_app_lang') || 'tr';
 
+    // --- SAYFA İÇERİĞİ ÇEVİRİSİ (başlıklar, etiketler, giriş metinleri) ---
+    const SECTION_EN = {"hero": {"h1": ["The Vibration of Your Inner World,", "Shapes Your Outer Destiny"], "badge": "“The universe responds not to the words you speak, but to the vibration you believe and feel in your heart.”", "p": "Transform your frequency with concrete exercises drawn from Pierre Franckh's blog posts, seminar notes and book guides; break your inner censor and come into full resonance with the universe.", "btn": ["Bridge Phrase Lab", "72-Hour Evidence Tracker", "Order & Release Ritual"]}, "ozet": [null, "The Foundations of the Teaching", "The 4 Core Pillars of the Law of Resonance"], "inanc-atolyesi": ["Franckh's 6-Step Belief Transformation", "Core Belief Detective & Grateful Release", "Find the inner resistance that begins with “but”, ask whom it belongs to, then thank it for protecting you so far and symbolically let it go."], "kopru-cumleler": ["Guide to Breaking the Inner Censor", "Bridge Phrase Laboratory", "Saying “I’m very rich” while in debt creates a mocking inner voice (“You’re lying!”). Build resistance-free affirmations with Franckh’s 3-part bridge formula, which the mind cannot object to."], "dil-filtresi": ["The Subconscious Language Coding Principle", "Subconscious Language Filter & Trap Word Detector", "The subconscious doesn’t recognize negations (-ma, -me, “değil”); it resonates with the fear or lack word at the center of the sentence. Catch the hidden saboteur words in your sentence and turn them into pure frequency."], "yer-acma": ["Franckh’s “Raum Schaffen” Principle", "Acting As If & the Physical Empty-Hanger Rule", "“If you invite a new love, abundance or career into your life, you must show the universe that you’ve physically made room. A jam-packed wardrobe or living space can’t fit anything new.”"], "su-rezonansi": ["Dr. Masaru Emoto & the Water Crystal Method", "Water Glass & Cellular Resonance Laboratory", "Franckh reminds us that 70% of our body is water and that water molecules remember the frequency of intention perfectly. Load pure resonance into your cells by focusing on a glass of water."], "alfa-uyku": ["When the Inner Censor Sleeps", "Alpha & Theta Sleep Threshold (Golden Minutes)", "The 15 minutes before falling asleep and the first 5 minutes after waking are the Alpha/Theta phase, when the brain’s analytical censor is at its weakest. Plant seeds in the subconscious with Franckh’s guided-imagery flows."], "serbest-birakma-mantigi": ["Pierre Franckh’s Most Famous Metaphor", "Restaurant Order & Letting Go (Loslassen)", "“After ordering from a waiter in a restaurant, you don’t run to the kitchen every 2 minutes to ask, ‘Is the chef making it? Did you forget?’ You wait peacefully at your table.”"], "kanitlar-zinciri": ["The Technique That Warms Up Belief", "72-Hour Rule & the Chain of Small Evidence", "To break the mind’s doubt reflex, Franckh suggests setting intentions on trivial matters and recording the synchronicities and signs that arrive within 72 hours. These small proofs melt big belief blocks."], "iliskiler-aynalama": ["Pierre Franckh: Relationships & the Soulmate Frequency", "The Mirroring Principle & Self-Love", "“Romantic relationships are the perfect reflection of your relationship with yourself. Everything you ignore or reject in yourself, your partner reflects back to you.”"], "dilek-rehberi": ["The Pierre Franckh Method", "6-Step Intention & Frequency Guide", "Move your wish out of a mental blueprint and into the universal field of resonance."], "kalp-koheransi": ["Physiological Resonance", "Heart Coherence & Frequency Tuner", "A 5-second inhale / 5-second exhale rhythm that balances the heart’s electromagnetic field and syncs it with brain waves."], "bilgeler-sozleri": ["Universal References", "Scientists and Thinkers Mentioned in the Book", "The quantum pioneers, sages and researchers Pierre Franckh draws on to ground the phenomenon of resonance."], "dilek-sandigi": ["Personal Tracking", "Your Wish & Frequency Chest", "The active intentions, bridge phrases and surrender records you’ve released into your field of resonance."]};
+    const _trOrig = new WeakMap();
+    function _tx(el, en, lang) {
+      if (!el) return;
+      const nodes = Array.prototype.slice.call(el.childNodes).filter(n => n.nodeType === 3 && (n.textContent.trim() || _trOrig.has(n)));
+      const node = nodes[nodes.length - 1];
+      if (!node) return;
+      if (!_trOrig.has(node)) _trOrig.set(node, node.textContent);
+      node.textContent = lang === 'en' ? en : _trOrig.get(node);
+    }
+    function applySectionTranslations(lang) {
+      Object.keys(SECTION_EN).forEach(id => {
+        const d = SECTION_EN[id];
+        if (id === 'hero') {
+          const root = document.querySelector('main > section:first-child');
+          const h1 = root && root.querySelector('h1');
+          if (!h1) return;
+          _tx(h1, d.h1[0], lang);
+          _tx(h1.querySelector('span'), d.h1[1], lang);
+          _tx(root.querySelector('div.inline-flex'), d.badge, lang);
+          if (h1.nextElementSibling && h1.nextElementSibling.tagName === 'P') _tx(h1.nextElementSibling, d.p, lang);
+          const links = root.querySelectorAll('a');
+          if (links.length === d.btn.length) links.forEach((a, i) => _tx(a, d.btn[i], lang));
+          return;
+        }
+        const root = document.getElementById(id);
+        const h2 = root && root.querySelector('h2');
+        if (!h2) return;
+        const prev = h2.previousElementSibling;
+        if (d[0] && prev && prev.tagName === 'SPAN') _tx(prev, d[0], lang);
+        _tx(h2, d[1], lang);
+        const next = h2.nextElementSibling;
+        if (next && next.tagName === 'P') _tx(next, d[2], lang);
+      });
+    }
+
     function changeLanguage(lang, silent) {
       currentLang = lang;
       localStorage.setItem('rezonans_app_lang', lang);
@@ -1979,6 +2124,9 @@ return {
           el.innerText = translations[lang][key];
         }
       });
+
+      applySectionTranslations(lang);
+      document.documentElement.lang = lang;
 
       if (!silent) showToast(translations[lang].lang_changed, "🌐");
     }
@@ -2380,6 +2528,7 @@ return {
     });
 
     document.getElementById('burn-btn').addEventListener('click', () => {
+      if (oldPaper.classList.contains('anim-burn')) return;
       const limitingVal = inputLimiting.value.trim();
       if (!limitingVal) {
         showToast("Lütfen önce serbest bırakmak istediğiniz 'ama' cümlesini yazın.", "⚠️");
@@ -2482,8 +2631,9 @@ return {
         "yoruldum", "nefret", "asla", "kaybetmek", "kötü", "bıktım", "eksik"
       ];
 
-      const lowerVal = val.toLowerCase();
-      const foundTraps = triggerWords.filter(w => lowerVal.includes(w));
+      const lowerVal = val.toLocaleLowerCase('tr-TR');
+      const rawTraps = triggerWords.filter(w => lowerVal.includes(w));
+      const foundTraps = rawTraps.filter((w, _, arr) => !arr.some(o => o !== w && o.startsWith(w)));
 
       // -ma, -me olumsuzluk ekleri tespiti
       if (lowerVal.includes("istemiyorum") || lowerVal.includes("olmasın") || lowerVal.includes("değil") || lowerVal.includes("kalmamak")) {
@@ -2506,7 +2656,7 @@ return {
         `).join('');
 
         // Eşleşen örnek veya dinamik saf öneri
-        const matched = trapDictionary.find(d => d.wrong.toLowerCase().includes(foundTraps[0]));
+        const matched = trapDictionary.find(d => { const dw = String(d.wrong).toLocaleLowerCase('tr-TR'); return rawTraps.some(w => dw.includes(w)); });
         if (matched) {
           proposal.innerText = `"${matched.clean}"`;
         } else {
@@ -2683,7 +2833,7 @@ return {
       btn.disabled = true;
       ADMIN.trackEvent('water_activation');
 
-      let remaining = 15;
+      let remaining = 60;
       desc.innerText = `Bardağı iki elinizle kavrayın. Suya niyet yükleniyor... (${remaining} sn)`;
 
       waterTimer = setInterval(() => {
@@ -2782,7 +2932,7 @@ return {
       const pattern = document.getElementById('bridge-pattern').value;
       const suffix = document.getElementById('bridge-suffix').value;
       
-      const sentence = `"${topic.charAt(0).toUpperCase() + topic.slice(1)} ${pattern}${suffix}"`;
+      const sentence = `"${topic.charAt(0).toLocaleUpperCase(currentLang === 'en' ? 'en-US' : 'tr-TR') + topic.slice(1)} ${pattern}${suffix}"`;
       document.getElementById('generated-bridge-result').innerText = sentence;
     }
 
@@ -2860,7 +3010,7 @@ return {
 
       if (syncTimerInterval) clearInterval(syncTimerInterval);
 
-      syncTimerInterval = setInterval(() => {
+      const tick = () => {
         const remaining = syncData.endTime - Date.now();
         if (remaining <= 0) {
           clearInterval(syncTimerInterval);
@@ -2874,7 +3024,9 @@ return {
 
         document.getElementById('sync-timer-display').innerText = 
           `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      }, 1000);
+      };
+      syncTimerInterval = setInterval(tick, 1000);
+      tick();
     }
 
     function loadActiveSync() {
@@ -3043,6 +3195,7 @@ return {
       breatheSeconds = 5;
       breathPhase = 'inhale';
       applyBreathVisuals();
+      breatheTimer.innerText = breathSeconds;
       ADMIN.trackEvent('breathing_session');
 
       breathInterval = setInterval(() => {
@@ -3083,6 +3236,7 @@ return {
       breatheTimer.innerText = "5";
       breatheCircle.style.transform = "scale(1)";
       breatheHalo.style.transform = "scale(1)";
+      breatheCircle.style.borderColor = "";
     }
 
     document.getElementById('toggle-breathe-btn').addEventListener('click', () => {
@@ -3266,7 +3420,7 @@ function copyQuoteText(encodedText) {
     }
 
     document.getElementById('clear-all-wishes').addEventListener('click', () => {
-      localStorage.removeItem(APP_STORAGE_KEY);
+      localStorage.setItem(APP_STORAGE_KEY, '[]');
       renderWishes();
       showToast("Dilek sandığı sıfırlandı.", "🧹");
     });
